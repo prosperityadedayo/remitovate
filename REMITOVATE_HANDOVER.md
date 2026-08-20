@@ -21,23 +21,26 @@ Supabase should only appear where a technical attribution, documentation, config
 ## 3. Current Technology Stack
 
 **Frontend**
-- Next.js 16 (App Router, latest)
+- Next.js 16 (App Router)
 - TypeScript (strict mode enabled)
 - Tailwind CSS v3.4
 - Lucide React icons
-- next-themes (installed, light mode only in PASS 0)
+- next-themes (light / dark / system theme support)
 - shadcn/ui (New York style, RSC enabled)
 
 **Backend / Infrastructure**
 - Supabase Auth
-- Supabase PostgreSQL
-- Supabase Storage (planned for logos)
+- Supabase PostgreSQL (not yet configured with application tables)
+- Supabase Storage (planned for business logos)
 - Vercel (deployment target)
 
 **UI Primitives**
-- Radix UI (@radix-ui/react-*)
+- Radix UI (`@radix-ui/react-avatar`, `@radix-ui/react-checkbox`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-slot`)
 - class-variance-authority
 - clsx + tailwind-merge
+- tailwindcss-animate
+
+**Package manager:** npm
 
 ## 4. Current Folder Structure
 
@@ -55,13 +58,18 @@ remitovate/
     auth/
       login/page.tsx
       sign-up/page.tsx
+      signup/page.tsx
       forgot-password/page.tsx
       update-password/page.tsx
+      reset-password/page.tsx
       confirm/route.ts
       error/page.tsx
       sign-up-success/page.tsx
+      logout/route.ts
     protected/
       layout.tsx
+      page.tsx
+    dashboard/
       page.tsx
   components/
     ui/
@@ -77,6 +85,16 @@ remitovate/
       skeleton.tsx
       alert.tsx
       toast.tsx
+    marketing/
+      navbar.tsx
+      hero-section.tsx
+      invoice-preview.tsx
+      features-section.tsx
+      how-it-works.tsx
+      ai-quick-invoice.tsx
+      mobile-section.tsx
+      cta-section.tsx
+      footer.tsx
     auth-button.tsx
     login-form.tsx
     sign-up-form.tsx
@@ -111,7 +129,7 @@ remitovate/
 - `lucide-react`
 - `next-themes`
 - `class-variance-authority`, `clsx`, `tailwind-merge`
-- Radix UI primitives (`@radix-ui/react-checkbox`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-slot`, `@radix-ui/react-avatar`)
+- Radix UI primitives (`@radix-ui/react-avatar`, `@radix-ui/react-checkbox`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-label`, `@radix-ui/react-slot`)
 - `tailwindcss-animate`
 
 **Dev**
@@ -119,23 +137,23 @@ remitovate/
 - `tailwindcss`, `postcss`, `autoprefixer`
 - `eslint`, `eslint-config-next`
 
-No additional dependencies beyond the starter kit baseline plus `@radix-ui/react-avatar` were added in PASS 0.
+No additional dependencies beyond the baseline were added in PASS 1 or PASS 2.
 
 ## 6. Supabase Setup Status
 
 **Client architecture:** Implemented and functional.
 - `lib/supabase/server.ts` — Server Component / Route Handler client using `@supabase/ssr` with `cookies()`.
 - `lib/supabase/client.ts` — Browser client using `@supabase/ssr`.
-- `lib/supabase/proxy.ts` — Next.js Proxy middleware for session refresh.
+- `lib/supabase/proxy.ts` — Next.js Proxy middleware for session refresh and route protection.
 - `proxy.ts` — Top-level proxy entry point.
 
-**Environment variables required (NOT yet configured in tracked files):**
+**Environment variables required in `.env.local`:**
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 
-The developer must create `.env.local` from `.env.example` and fill in real values.
+The developer must create `.env.local` from `.env.example` and fill in real values. These files are not tracked in version control.
 
-**No production database tables created yet.** Only auth flows are implemented.
+**No production database tables created yet.** Only Supabase Auth is being used. Application tables (profiles, businesses, customers, invoices, invoice_items) have not been created.
 
 ## 7. Authentication Status
 
@@ -143,87 +161,135 @@ Implemented using Supabase Auth with cookie-based server-side session management
 
 **Pages:**
 - `/auth/sign-up` — Email/password sign up with redirect to `/auth/sign-up-success`
-- `/auth/login` — Email/password login with redirect to `/protected`
-- `/auth/forgot-password` — Password reset email with redirect to `/auth/update-password`
-- `/auth/update-password` — Set new password with redirect to `/protected`
+- `/auth/signup` — Alias for `/auth/sign-up`
+- `/auth/login` — Email/password login with redirect to `/dashboard`
+- `/auth/forgot-password` — Password reset email with redirect to `/auth/reset-password`
+- `/auth/update-password` — Set new password with redirect to `/auth/login`
+- `/auth/reset-password` — Alias for `/auth/update-password`
 - `/auth/confirm` — Email OTP verification (`token_hash`)
-- `/auth/error` — Auth error display
+- `/auth/error` — Auth error display with friendly messages
 - `/auth/sign-up-success` — Confirmation prompt
+- `/auth/logout` — Server-side logout POST route
 
 **Session management:**
 - Proxy middleware (`proxy.ts`) refreshes session on every request.
 - Unauthenticated users are redirected to `/auth/login` for protected routes.
+- Session persists across page refreshes using cookie-based auth.
 
-**Redirect targets are placeholders.** `/protected` is a temporary landing page. Real dashboard routing will be established in PASS 3.
+**Route protection:**
+- `/dashboard` requires authentication and redirects unauthenticated users to `/auth/login`.
+- Proxy handles protection for all non-public routes.
 
 ## 8. Current UI Pages
 
 **Public:**
-- `/` — Marketing home with Remitovate branding, hero, and auth CTAs (Sign in + Sign up)
+- `/` — Full marketing website with Remitovate branding, hero, invoice preview, features, how it works, AI Quick Invoice, mobile section, CTA, and footer
 
 **Auth:**
 - `/auth/login`
 - `/auth/sign-up`
+- `/auth/signup`
 - `/auth/forgot-password`
 - `/auth/update-password`
+- `/auth/reset-password`
 - `/auth/confirm`
 - `/auth/error`
 - `/auth/sign-up-success`
+- `/auth/logout` (POST route)
 
-**Protected (placeholder):**
-- `/protected` — Basic protected page showing user claims and placeholder text
+**Protected:**
+- `/dashboard` — Placeholder confirming authentication works; full dashboard coming in PASS 3
+- `/protected` — Legacy placeholder page from PASS 0
 
 ## 9. Current Design System
 
-**Colors:** Updated from default shadcn/ui neutral to Remitovate brand colors in `app/globals.css`.
-- Primary: Indigo-based (`#4F46E5` equivalent in HSL: `238 84% 67%`)
-- Background: White
-- Secondary/Muted: Slate-50 family
-- Foreground: Slate-900 family
-- Border: Slate-200 family
-- Semantic colors: Success, Warning, Error, Info mapped
+**Colors:** Remitovate brand colors defined in `app/globals.css`.
+- Primary: Indigo (`#4F46E5` equivalent in HSL: `238 84% 67%`)
+- Primary dark: `#4338CA`
+- Primary light: `#EEF2FF`
+- Background: `#FFFFFF`
+- Secondary background: `#F8FAFC`
+- Primary text: `#0F172A`
+- Secondary text: `#475569`
+- Muted text: `#64748B`
+- Border: `#E2E8F0`
+- Success: `#16A34A`
+- Warning: `#D97706`
+- Error: `#DC2626`
+- Info: `#2563EB`
+
+**Dark mode tokens:**
+- Background: `#0B1120`
+- Surface: `#111827`
+- Elevated surface: `#172033`
+- Primary text: `#F8FAFC`
+- Secondary text: `#CBD5E1`
+- Muted text: `#94A3B8`
+- Border: `#1E293B`
 
 **Typography:** Geist Sans via `next/font/google`. No custom font files.
 
-**Mode:** Light mode only. Dark mode CSS variables were intentionally removed. `next-themes` is installed but unused.
+**Mode:** Light, dark, and system theme support via `next-themes`. Theme preference persists across reloads.
 
 **Radius:** `0.5rem` (`--radius`).
 
 **Icons:** Lucide React only. No emojis in UI.
 
-**Responsive:** Mobile-first Tailwind classes used throughout. No mobile overflow issues identified.
+**Responsive:** Mobile-first Tailwind classes used throughout. Components are designed for 375px, 390px, 414px, 768px, 1024px, and 1440px.
 
-**Foundation UI components added in PASS 0:**
+**Foundation UI components:**
+- `badge.tsx`
+- `button.tsx`
+- `card.tsx`
+- `checkbox.tsx`
+- `dropdown-menu.tsx`
+- `input.tsx`
+- `label.tsx`
 - `separator.tsx`
 - `avatar.tsx`
 - `skeleton.tsx`
 - `alert.tsx`
 - `toast.tsx` + `Toaster` export
 
+**Marketing components:**
+- `navbar.tsx` — Sticky responsive navbar with auth-aware navigation and theme switcher
+- `hero-section.tsx` — Hero with eyebrow badge, headline, CTAs, and invoice preview
+- `invoice-preview.tsx` — Realistic invoice mockup
+- `features-section.tsx` — 6 feature cards with Lucide icons
+- `how-it-works.tsx` — 3-step process with numbered indicators
+- `ai-quick-invoice.tsx` — AI feature highlight with natural language mockup
+- `mobile-section.tsx` — Mobile UI mockup
+- `cta-section.tsx` — Final conversion section
+- `footer.tsx` — Company attribution and navigation links
+
+**Authentication components:**
+- `login-form.tsx`
+- `sign-up-form.tsx`
+- `forgot-password-form.tsx`
+- `update-password-form.tsx`
+- `auth-button.tsx`
+- `logout-button.tsx`
+- `theme-switcher.tsx`
+
 ## 10. Current Git State
 
 **Branch:** `main`
 **Remote:** `origin` → `https://github.com/prosperityadedayo/remitovate.git`
-**Status:** Working tree clean. Branch is 1 commit ahead of `origin/main`.
+**Status:** Working tree has uncommitted changes from PASS 1 and PASS 2 implementation.
 **Recent commits:**
-- `aa0c4cb` — feat: eatablish remitovate foundation
+- `aa0c4cb` — feat: establish remitovate foundation
 - `e487300` — Initial commit from Create Next App
-
-No uncommitted changes. No untracked files.
 
 ## 11. What PASS 0 Completed
 
 - Verified Next.js, TypeScript, Tailwind, and Supabase client architecture.
 - Established design tokens with Remitovate color system in `app/globals.css`.
-- Removed dark mode CSS variables and `darkMode` from Tailwind config.
-- Added missing foundation UI primitives (separator, avatar, skeleton, alert, toast).
+- Added foundation UI primitives (separator, avatar, skeleton, alert, toast).
 - Created `types/index.ts` with base domain types (Profile, Business, Customer, Invoice, InvoiceItem).
 - Removed starter-kit artifacts (tutorial components, deploy button, env-var warning, logos, hero).
 - Updated root layout metadata to Remitovate branding.
-- Updated marketing home page to Remitovate placeholder with both Sign in and Sign up actions.
-- Updated protected layout branding and removed references to deleted components.
-- Configured ESLint to ignore `.next/` generated artifacts, eliminating pre-existing lint noise.
-- Verified `npm run lint` passes (0 errors).
+- Configured ESLint to ignore `.next/` generated artifacts.
+- Verified `npm run lint` passes.
 - Verified `npm run build` passes.
 
 ## 12. What PASS 0 Intentionally Did Not Implement
@@ -232,73 +298,236 @@ No uncommitted changes. No untracked files.
 - No Row Level Security (RLS) policies.
 - No real Supabase data integration.
 - No dashboard, invoice management, customers, settings, or PDF generation.
-- No application shell (sidebar, mobile navigation, header, account menu).
 - No marketing website beyond the home page placeholder.
-- No dark mode support (light mode only).
+- No dark mode support.
 - No AI features.
 - No payment integrations.
 
-## 13. PASS 1 Requirements (Marketing Website)
+## 13. PASS 1 — Marketing Website (COMPLETE)
 
-From AGENTS.md, PASS 1 must implement:
-- Navbar
-- Hero section
-- Invoice preview
-- Features section
-- How it works section
-- AI Quick Invoice section
-- Mobile section
-- CTA section
-- Footer
+PASS 1 implemented the full public-facing marketing website:
 
-The marketing site should be built before authentication flows are finalized.
+- **Navbar** — Sticky top navigation with Remitovate branding, section links, Sign in / Sign up CTAs, and responsive mobile menu
+- **Hero** — Eyebrow badge, main headline, supporting copy, primary and secondary CTAs, and invoice preview visual
+- **Invoice Preview** — Realistic invoice mockup (INV-0001, Sarah Johnson, ₦170,000 total, Draft status)
+- **Features** — 6 feature cards in a responsive grid with Lucide icons
+- **How It Works** — 3-step numbered process with desktop connector lines
+- **AI Quick Invoice** — Split layout highlighting natural language to structured invoice transformation
+- **Mobile Section** — Phone mockup showing invoice list with Draft/Paid statuses
+- **CTA** — Final conversion section with primary and secondary actions
+- **Footer** — Clean footer with Product, Account, and Company columns; company attribution to Perfect Eagle Complete Business Solutions
 
-## 14. PASS 2 Requirements (Authentication)
+**Design characteristics:**
+- Premium, minimal, professional, trustworthy
+- Mobile-first responsive design
+- Lucide React icons throughout; no emojis
+- Subtle hover transitions and animations
+- Indigo primary used strategically
 
-From AGENTS.md, PASS 2 must implement:
-- Sign up
-- Login
-- Logout
-- Forgot password
-- Auth states
-- Supabase Auth integration
+## 14. PASS 2 — Authentication and Theming (COMPLETE)
 
-**Theme requirement:** PASS 2 must include proper light/dark/system theme support. `next-themes` is already installed but unused. The theme switcher component exists at `components/theme-switcher.tsx` but should be reviewed and integrated into the auth flow and app shell. Dark mode CSS variables were removed in PASS 0 and must be restored if dark mode is required.
+PASS 2 implemented Supabase-powered authentication and a complete theme system:
 
-## 15. Important Architectural Decisions
+**Authentication:**
+- **Sign up** — `/auth/sign-up` and `/auth/signup` with email/password validation and friendly error messages
+- **Sign in** — `/auth/login` with credential validation, friendly error messages, and redirect to `/dashboard`
+- **Sign out** — Server-side logout via `/auth/logout` POST route
+- **Forgot password** — `/auth/forgot-password` with neutral success message
+- **Password reset** — `/auth/update-password` and `/auth/reset-password`
+- **Session persistence** — Cookie-based via existing Supabase SSR architecture; sessions survive page refreshes
+- **Route protection** — Proxy middleware protects `/dashboard` and all non-public routes; unauthenticated users redirect to `/auth/login`
+- **Auth-aware navigation** — Marketing navbar shows Dashboard + Sign out when logged in, Sign in + Sign up when logged out
+- **Error handling** — User-friendly error messages; raw Supabase errors are not exposed to users
+- **Loading states** — Buttons disabled during submission; navbar shows skeleton during auth check
 
-- **Cookie-based auth:** Server-side authentication uses Supabase cookie handling via `@supabase/ssr`. No service-role keys are exposed to the browser.
-- **Proxy middleware:** Session refresh and auth redirects are handled at the edge via Next.js Proxy (`proxy.ts`), not traditional middleware.
-- **No repository/service layers:** The project follows the AGENTS.md directive to keep architecture simple. Data access will use direct Supabase client calls in Server Components and Route Handlers.
-- **Path alias:** `@/*` maps to project root.
-- **shadcn/ui:** Components are added manually or via CLI into `components/ui/`. No custom wrapper components unless genuinely needed.
-- **Branding ownership:** Remitovate is owned by Perfect Eagle Complete Business Solutions. Supabase is infrastructure only.
+**Theming:**
+- **Light / Dark / System** — Full dark mode CSS variable set in `app/globals.css`
+- **Theme switcher** — Accessible dropdown with Sun / Moon / Monitor icons via Lucide React
+- **Persistent preference** — `next-themes` with `enableSystem` and `disableTransitionOnChange`
+- **Dark mode design** — Deliberate dark tokens for backgrounds, surfaces, text, and borders
+- **Theme-aware components** — Marketing components use `bg-background`, `text-foreground`, `border-border` instead of hardcoded colors
 
-## 16. Important Things Future AI Agents Must NOT Change
+## 15. Supabase Database Status
 
-- **Do NOT re-introduce dark mode CSS variables** unless explicitly instructed by the user.
-- **Do NOT move or rename the Supabase client files** (`lib/supabase/server.ts`, `client.ts`, `proxy.ts`) without understanding the proxy architecture.
-- **Do NOT introduce paid infrastructure** or unnecessary frameworks.
-- **Do NOT modify `AGENTS.md`** without explicit instruction.
-- **Do NOT create database tables** without explicit instruction and database design review.
-- **Do NOT commit secrets or API keys** to tracked files.
-- **Do NOT change the company ownership branding.** Always use "Remitovate — by Perfect Eagle Complete Business Solutions" for attribution.
-- **Do NOT run destructive Git commands** (`git reset --hard`, `git clean -fd`, `git push --force`, branch deletion) without explicit approval.
-- **Do NOT implement future passes** out of order. Follow the controlled pass sequence defined in `AGENTS.md`.
+Supabase Auth is currently being used for authentication only.
 
-## 17. Next Immediate Task
+The following application tables are NOT yet implemented:
+- profiles
+- businesses
+- customers
+- invoices
+- invoice_items
+- payments
+- subscriptions
+- notifications
+- email_logs
+- ai_generations
 
-**Execute PASS 1: Marketing Website**
+The application data model will be designed deliberately in a future pass before any tables are created.
 
-Build the public-facing marketing pages before diving into the authenticated application. PASS 1 requires:
-1. A proper marketing navbar with Remitovate branding and auth CTAs.
-2. A hero section with clear value proposition.
-3. An invoice preview/visual section.
-4. Features section.
-5. How it works section.
-6. AI Quick Invoice section.
-7. Mobile section.
-8. CTA section.
-9. Footer with company attribution.
+## 16. Current Routes
 
-After PASS 1 is complete, run `npm run lint`, `npm run build`, report changes, and stop. Do not proceed to PASS 2 until explicitly instructed.
+**Public routes:**
+- `/` — Marketing home page
+
+**Authentication routes:**
+- `/auth/login`
+- `/auth/sign-up`
+- `/auth/signup`
+- `/auth/forgot-password`
+- `/auth/update-password`
+- `/auth/reset-password`
+- `/auth/confirm`
+- `/auth/error`
+- `/auth/sign-up-success`
+- `/auth/logout` (POST)
+
+**Protected routes:**
+- `/dashboard` — Authenticated placeholder
+- `/protected` — Legacy placeholder
+
+## 17. Current UI
+
+**Marketing components (`components/marketing/`):**
+- `navbar.tsx`
+- `hero-section.tsx`
+- `invoice-preview.tsx`
+- `features-section.tsx`
+- `how-it-works.tsx`
+- `ai-quick-invoice.tsx`
+- `mobile-section.tsx`
+- `cta-section.tsx`
+- `footer.tsx`
+
+**Authentication components:**
+- `login-form.tsx`
+- `sign-up-form.tsx`
+- `forgot-password-form.tsx`
+- `update-password-form.tsx`
+- `auth-button.tsx`
+- `logout-button.tsx`
+- `theme-switcher.tsx`
+
+**UI primitives (`components/ui/`):**
+- `badge.tsx`, `button.tsx`, `card.tsx`, `checkbox.tsx`, `dropdown-menu.tsx`, `input.tsx`, `label.tsx`, `separator.tsx`, `avatar.tsx`, `skeleton.tsx`, `alert.tsx`, `toast.tsx`
+
+## 18. Design System
+
+Remitovate uses a premium SaaS design language:
+
+- Clean, minimal, professional, trustworthy
+- Financial/productivity oriented
+- Indigo primary (`#4F46E5`) used strategically for CTAs, highlights, and active states
+- Neutral whites and slates for backgrounds and surfaces
+- Strong typographic hierarchy with Geist Sans
+- Generous whitespace and consistent vertical rhythm
+- Subtle motion (hover transitions, button transitions, dropdown transitions)
+- Lucide React icons throughout
+- No emojis in UI
+- Mobile-first responsive design
+
+## 19. Product Workflow
+
+**Intended eventual user workflow:**
+1. Sign up
+2. Business setup
+3. Upload logo
+4. Choose template
+5. Add customer
+6. Create invoice
+7. Download PDF
+8. Send/share
+9. Track status
+
+**Planned AI Quick Invoice workflow:**
+1. Natural language description
+2. Structured invoice
+3. Professional invoice
+
+These workflows are planned and not yet implemented.
+
+## 20. Future Pass Roadmap
+
+**PASS 0** — Foundation — COMPLETE
+
+**PASS 1** — Marketing Website — COMPLETE
+
+**PASS 2** — Supabase Auth + Route Protection + Themes — COMPLETE
+
+**PASS 3** — Dashboard + Business Onboarding — NEXT
+
+**PASS 4** — Customers + Invoice Creation
+
+**PASS 5** — Invoice Templates + PDF Generation
+
+**PASS 6** — AI Quick Invoice + Smart Features
+
+**PASS 7** — Email + Sharing + Final MVP Polish
+
+Then:
+- MVP TESTING
+- DEPLOYMENT
+- REAL USER TESTING
+
+## 21. PASS 3 Preview
+
+PASS 3 will focus on:
+- Authenticated dashboard
+- Business onboarding
+- Business profile
+- Logo upload
+- Brand colour selection
+- Invoice preferences
+- Invoice numbering preferences
+- Currency selection
+- Invoice template selection
+- Supabase Storage for business logos
+- Database schema design
+- Row Level Security (RLS)
+
+**Important:** The database schema must be designed deliberately before creating production tables. Every user's data must be isolated using proper Supabase Row Level Security.
+
+## 22. Important Product Principles
+
+1. Remitovate is a real product, not merely a CRUD portfolio project.
+2. The core value proposition is reducing repetitive invoice creation.
+3. Users configure their business once and reuse that information.
+4. Invoice numbers should be managed automatically.
+5. Users should not repeatedly upload their logo.
+6. Users should be able to save customers.
+7. Professional invoice templates are a core feature.
+8. PDF generation is a core MVP capability.
+9. AI Quick Invoice is a differentiating feature but the core invoicing system must not depend on AI.
+10. The application should remain zero-capital/free-tier friendly during MVP development.
+11. Do not introduce paid APIs unnecessarily.
+12. Do not implement future functionality early.
+13. Ask the developer when a major product or architectural decision is unclear rather than guessing.
+
+## 23. Security Principles
+
+- Supabase Auth is responsible for authentication.
+- Do not build custom password authentication.
+- Never store passwords.
+- Never expose service-role keys to client code.
+- Authentication sessions use the established Supabase/Next.js cookie-based architecture.
+- Future application tables must use Row Level Security.
+- Users must only access their own business/customer/invoice data.
+
+## 24. Next Immediate Task
+
+The next task is:
+
+**PASS 3 — Dashboard + Business Onboarding + Initial Application Data Architecture**
+
+Before implementation:
+1. Review the existing repository.
+2. Review this handover.
+3. Design the database schema before creating application tables.
+4. Define relationships.
+5. Define Row Level Security requirements.
+6. Determine the appropriate Supabase Storage strategy for business logos.
+7. Ask the developer about any genuine ambiguity.
+
+Do not implement Pass 4 functionality.
+Do not implement customer management or full invoice creation yet.
+Do not begin Pass 3 automatically. The developer will explicitly authorize Pass 3.
