@@ -38,10 +38,21 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
-      // Update this route to redirect to an authenticated route. The user already has an active session.
-      router.push("/protected");
+      router.push("/dashboard");
+      router.refresh();
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        if (message.includes("invalid login credentials")) {
+          setError("Invalid email or password. Please try again.");
+        } else if (message.includes("email not confirmed")) {
+          setError("Please confirm your email before signing in.");
+        } else {
+          setError("Something went wrong. Please try again.");
+        }
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -68,6 +79,7 @@ export function LoginForm({
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               </div>
               <div className="grid gap-2">
@@ -86,9 +98,14 @@ export function LoginForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Logging in..." : "Login"}
               </Button>

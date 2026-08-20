@@ -5,7 +5,7 @@ export function MobileSection() {
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           <div className="order-2 lg:order-1">
             <div className="mx-auto w-full max-w-[280px]">
-              <div className="rounded-[2rem] border border-border bg-white p-3 shadow-xl">
+              <div className="rounded-[2rem] border border-border bg-background p-3 shadow-xl">
                 <div className="rounded-[1.5rem] border border-border bg-background">
                   <div className="flex items-center justify-between px-5 pt-6 pb-3">
                     <span className="text-sm font-semibold text-foreground">
@@ -26,7 +26,7 @@ export function MobileSection() {
                   </div>
 
                   <div className="mx-5 space-y-3 pb-6 pt-2">
-                    <div className="rounded-lg border border-border bg-white p-3">
+                    <div className="rounded-lg border border-border bg-background p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">
                           INV-0024
@@ -43,7 +43,7 @@ export function MobileSection() {
                       </p>
                     </div>
 
-                    <div className="rounded-lg border border-border bg-white p-3">
+                    <div className="rounded-lg border border-border bg-background p-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-muted-foreground">
                           INV-0023

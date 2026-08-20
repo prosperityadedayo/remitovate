@@ -44,13 +44,26 @@ export function SignUpForm({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/protected`,
+          emailRedirectTo: `${window.location.origin}/dashboard`,
         },
       });
       if (error) throw error;
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred");
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        if (message.includes("user already registered")) {
+          setError(
+            "An account with this email already exists. Try signing in instead.",
+          );
+        } else if (message.includes("password should be at least")) {
+          setError("Password must be at least 6 characters.");
+        } else {
+          setError("Something went wrong. Please try again.");
+        }
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -75,6 +88,7 @@ export function SignUpForm({
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
                 />
               </div>
               <div className="grid gap-2">
@@ -87,6 +101,7 @@ export function SignUpForm({
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                 />
               </div>
               <div className="grid gap-2">
@@ -99,9 +114,14 @@ export function SignUpForm({
                   required
                   value={repeatPassword}
                   onChange={(e) => setRepeatPassword(e.target.value)}
+                  autoComplete="new-password"
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Creating an account..." : "Sign up"}
               </Button>

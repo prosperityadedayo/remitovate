@@ -43,7 +43,7 @@ export function AIQuickInvoice() {
                 {naturalLanguage}
               </p>
               <div className="mt-4 flex items-center justify-center">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white text-muted-foreground">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
                   <svg
                     className="h-4 w-4"
                     fill="none"
@@ -65,7 +65,7 @@ export function AIQuickInvoice() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-border bg-background p-6 shadow-sm">
               <div className="space-y-3">
                 {lineItems.map((item) => (
                   <div

@@ -1,6 +1,6 @@
 export function InvoicePreview() {
   return (
-    <div className="w-full max-w-md rounded-xl border border-border bg-white p-6 shadow-sm">
+    <div className="w-full max-w-md rounded-xl border border-border bg-background p-6 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

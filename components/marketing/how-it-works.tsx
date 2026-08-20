@@ -41,7 +41,7 @@ export function HowItWorks() {
                   aria-hidden="true"
                 />
               )}
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-sm font-semibold text-foreground shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground shadow-sm">
                 {step.number}
               </div>
               <h3 className="mt-6 text-base font-semibold text-foreground">

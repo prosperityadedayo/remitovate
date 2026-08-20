@@ -1,6 +1,19 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from "react";
 
+function getFriendlyMessage(error?: string) {
+  if (!error) return "An unspecified error occurred. Please try again.";
+
+  const lower = error.toLowerCase();
+  if (lower.includes("token") || lower.includes("otp")) {
+    return "The verification link is invalid or has expired. Please try again.";
+  }
+  if (lower.includes("no token hash")) {
+    return "The verification link is missing required information.";
+  }
+  return "Something went wrong. Please try again or contact support.";
+}
+
 async function ErrorContent({
   searchParams,
 }: {
@@ -9,17 +22,9 @@ async function ErrorContent({
   const params = await searchParams;
 
   return (
-    <>
-      {params?.error ? (
-        <p className="text-sm text-muted-foreground">
-          Code error: {params.error}
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          An unspecified error occurred.
-        </p>
-      )}
-    </>
+    <p className="text-sm text-muted-foreground">
+      {getFriendlyMessage(params?.error)}
+    </p>
   );
 }
 
