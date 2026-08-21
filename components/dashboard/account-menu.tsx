@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, User, Building2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getPublicLogoUrl } from "@/app/actions/upload";
+import { getSignedLogoUrl } from "@/app/actions/upload";
 
 export function AccountMenu() {
   const [email, setEmail] = useState<string | null>(null);
@@ -46,7 +46,7 @@ export function AccountMenu() {
           .maybeSingle();
 
         if (business?.logo_url) {
-          const signed = await getPublicLogoUrl(business.logo_url);
+          const signed = await getSignedLogoUrl(business.logo_url);
           setLogoUrl(signed);
         }
       } catch {

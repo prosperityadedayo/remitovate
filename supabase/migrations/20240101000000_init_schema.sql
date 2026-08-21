@@ -1,12 +1,21 @@
 -- ============================================
 -- PASS 3 — Initial Application Schema
 -- ============================================
+--
+-- DESTRUCTIVE CLEANUP WARNING:
+-- This migration DROPS existing tables before recreating them.
+-- Only run this against a fresh development database.
+-- DO NOT run this against a database containing real user data.
+-- If this migration has already been applied, create a new
+-- migration instead of re-running this one.
+--
+-- ============================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================
--- CLEANUP (idempotent re-runs)
+-- CLEANUP (idempotent re-runs on fresh DB only)
 -- ============================================
 DO $$
 BEGIN
@@ -191,9 +200,27 @@ CREATE POLICY "Users can delete own invoice items" ON invoice_items FOR DELETE U
 -- ============================================
 -- STORAGE BUCKET SETUP
 -- ============================================
--- Create the 'business-logos' bucket manually in the
+-- IMPORTANT: Create the 'business-logos' bucket manually in the
 -- Supabase Dashboard under Storage.
--- Set it as a Public bucket so logos are accessible without signed URLs.
+-- Set it as a PRIVATE bucket.
 --
--- Do NOT create storage RLS policies for this bucket.
--- Public access is appropriate for non-sensitive business logos.
+-- Storage RLS policies enforce per-user ownership based on the
+-- storage path structure: {user_id}/{timestamp}.{extension}
+--
+-- These policies verify that the authenticated user's ID matches
+-- the first folder in the object path, ensuring users can only
+-- access their own business logos.
+
+-- Storage RLS policies for business-logos bucket (PRIVATE)
+CREATE POLICY "Users can view own logos" ON storage.objects FOR SELECT USING (
+  bucket_id = 'business-logos' AND auth.uid()::text = (storage.foldername(name))[1]
+);
+CREATE POLICY "Users can upload own logos" ON storage.objects FOR INSERT WITH CHECK (
+  bucket_id = 'business-logos' AND auth.uid()::text = (storage.foldername(name))[1]
+);
+CREATE POLICY "Users can update own logos" ON storage.objects FOR UPDATE USING (
+  bucket_id = 'business-logos' AND auth.uid()::text = (storage.foldername(name))[1]
+);
+CREATE POLICY "Users can delete own logos" ON storage.objects FOR DELETE USING (
+  bucket_id = 'business-logos' AND auth.uid()::text = (storage.foldername(name))[1]
+);
