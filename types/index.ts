@@ -72,3 +72,20 @@ export interface InvoiceItem {
   created_at: string;
   updated_at: string;
 }
+
+export interface DashboardStats {
+  totalInvoiced: number;
+  paid: number;
+  outstanding: number;
+  overdue: number;
+}
+
+export interface RecentInvoice {
+  id: string;
+  invoice_number: string;
+  customer_name: string;
+  status: string;
+  total: number;
+  due_date: string;
+  invoice_date: string;
+}
