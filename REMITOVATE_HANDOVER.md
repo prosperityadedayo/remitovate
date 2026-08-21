@@ -72,6 +72,15 @@ remitovate/
       layout.tsx
       page.tsx
       onboarding/page.tsx
+    customers/
+      layout.tsx
+      page.tsx
+      new/
+        page.tsx
+      [id]/
+        page.tsx
+        edit/
+          page.tsx
   components/
     ui/
       badge.tsx
@@ -110,9 +119,14 @@ remitovate/
       dashboard-shell.tsx
       mobile-sidebar.tsx
       logo-upload.tsx
+    customers/
+      customer-list.tsx
+      customer-form.tsx
+      customer-detail.tsx
   actions/
     business.ts
     dashboard.ts
+    customers.ts
     upload.ts
   lib/
     supabase/
@@ -218,10 +232,13 @@ Implemented using Supabase Auth with cookie-based server-side session management
 **Protected routes:**
 - `/dashboard` — Authenticated dashboard with sidebar, header, account menu, stats cards, recent invoices, quick actions, and onboarding gate
 - `/dashboard/onboarding` — First-time business setup (name, email, phone, address, country, currency, logo upload, brand colour, invoice prefix, starting number, payment terms, template)
+- `/customers` — Customer list with search, add customer CTA, and empty state
+- `/customers/new` — Add customer form with validation
+- `/customers/[id]` — Customer detail view with edit/delete actions and invoice history empty state
+- `/customers/[id]/edit` — Edit customer form
 
 **Planned / future routes (not yet implemented):**
-- `/invoices` — Invoice list and management (PASS 4+)
-- `/customers` — Customer management (PASS 4+)
+- `/invoices` — Invoice list and management (PASS 6+)
 - `/settings` — Business settings (PASS 7+)
 
 ## 9. Current Design System
@@ -293,6 +310,11 @@ Remitovate uses a premium SaaS design language:
 - `dashboard-shell.tsx` — Client shell managing sidebar, header, main content, and mobile drawer state
 - `mobile-sidebar.tsx` — Slide-out drawer for mobile navigation with overlay and Escape key support
 - `logo-upload.tsx` — Logo upload with 1:1 canvas crop and 2MB max validation
+
+**Customer components:**
+- `customer-list.tsx` — Customer list with search, responsive cards/rows, empty state, and inline delete confirmation
+- `customer-form.tsx` — Shared create/edit form with validation, loading states, and toast feedback
+- `customer-detail.tsx` — Customer detail view with breadcrumbs, contact information grid, and invoice history empty state
 
 **Marketing components:**
 - `navbar.tsx` — Sticky responsive navbar with auth-aware navigation and theme switcher
@@ -437,7 +459,89 @@ PASS 3 implemented the authenticated application shell, business onboarding flow
 - Server-side auth gate redirects unauthenticated users to `/auth/login`
 - Legacy `/protected` route redirects to `/dashboard`
 
-## 16. Database Architecture
+## 16. PASS 5 — Customer Management (COMPLETE)
+
+PASS 5 implemented full customer management with server-side ownership, safe deletion, search, and responsive UI.
+
+**Routes implemented:**
+- `/customers` — Customer list with search, customer count, and empty state
+- `/customers/new` — Add customer form with validation
+- `/customers/[id]` — Customer detail view with edit/delete actions and invoice history empty state
+- `/customers/[id]/edit` — Edit customer form pre-filled with existing data
+
+**Customer list:**
+- Page title, description, and real customer count from Supabase
+- Search by name, email, or phone with debounced client-side input and URL-synced query params
+- Responsive layout: stacked cards on mobile, table-like rows on desktop
+- Empty state with CTA when no customers exist
+- Skeleton loading state
+- Inline delete confirmation with toast feedback
+
+**Add customer:**
+- Polished form matching existing Remitovate design system
+- Required fields: name, email
+- Optional fields: phone, address, country
+- Server-side validation with friendly error messages
+- Loading state during submission
+- Redirects to customer list on success with branded toast notification
+- "← Back" link for explicit navigation
+
+**Customer detail:**
+- Contact information grid with icons (name, email, phone, address, country, created date)
+- Breadcrumb trail: `Customers / [Name]`
+- Edit and Delete actions
+- Invoice history section with empty state ("No invoices for this customer yet.")
+- Skeleton loading state
+
+**Edit customer:**
+- Pre-filled form with existing customer data
+- Same validation as create
+- Redirects back to customer detail on success with toast
+- Cancel returns to customer detail
+
+**Delete customer:**
+- Safety check: prevents deletion if customer has existing invoices, with clear error message
+- Inline two-step confirmation ("This cannot be undone.")
+- Success toast on deletion
+- Redirects to customer list after deletion
+
+**Search:**
+- Debounced input (300ms) with instant URL update via `router.push`
+- Shareable URLs and back-button friendly
+- Clear button (X icon) when search is active
+
+**Toast notifications:**
+- Global `Toaster` added to `app/layout.tsx`
+- Branded `success` variant with primary color accent and check icon
+- Wired to all mutation flows: create, edit, delete, delete-blocked
+
+**Database migration:**
+- `supabase/migrations/20240101000003_customer_deletion_safety.sql`
+- Makes `invoices.customer_id` nullable
+- Changes `ON DELETE CASCADE` to `ON DELETE SET NULL` to preserve invoice history
+
+**Server actions (`app/actions/customers.ts`):**
+- `getCustomers(searchQuery?)` — Fetch scoped customers with optional search filter
+- `getCustomerById(id)` — Fetch single customer scoped to business
+- `createCustomer(formData)` — Insert with server-side validation
+- `updateCustomer(id, formData)` — Update with ownership check
+- `deleteCustomer(id)` — Safety check for invoices, then delete
+
+**Security:**
+- All actions derive `business_id` from `auth.uid()` — no client-supplied IDs trusted
+- RLS remains the final security boundary on `customers` table
+- Delete blocked when invoices exist to protect financial records
+
+**Responsive behaviour:**
+- Mobile: stacked cards with truncated text, full-width search
+- Desktop: table-like rows, inline search form
+- Forms: single column on mobile, 2-column grid on desktop
+
+**Theme:**
+- All colors use existing CSS variables
+- Works in light, dark, and system modes
+
+## 17. Database Architecture
 
 **Ownership model:**
 
@@ -465,14 +569,15 @@ invoice_items
 |-------|---------|--------|
 | `profiles` | User profile extension (email, full_name) | Implemented |
 | `businesses` | Business details, branding, invoice preferences | Implemented |
-| `customers` | Customer contact details per business | Database ready; CRUD not yet implemented |
+| `customers` | Customer contact details per business | Implemented |
 | `invoices` | Invoice headers with totals and status | Database ready; CRUD not yet implemented |
 | `invoice_items` | Invoice line items | Database ready; CRUD not yet implemented |
 
 **Notes:**
-- `customers`, `invoices`, and `invoice_items` tables exist as database groundwork for future passes.
-- Their full application functionality (create, edit, delete, list, search, PDF generation) has NOT yet been implemented.
-- Do not claim customer management, invoice creation, or PDF generation as implemented features.
+- `customers` table CRUD is fully implemented in PASS 5 with server-side ownership checks, search, and safe deletion.
+- `invoices` and `invoice_items` tables exist as database groundwork for future passes.
+- Their full application functionality (create, edit, delete, list, PDF generation) has NOT yet been implemented.
+- Do not claim invoice creation or PDF generation as implemented features.
 
 **Schema rules:**
 - UUID primary keys
@@ -482,7 +587,7 @@ invoice_items
 - Indexes on foreign keys and common query columns
 - No exposed secrets
 
-## 17. Security
+## 18. Security
 
 **Row Level Security:**
 - RLS is enabled on all application tables (`profiles`, `businesses`, `customers`, `invoices`, `invoice_items`)
@@ -508,7 +613,7 @@ invoice_items
 - Proxy middleware refreshes sessions on every request
 - No service-role keys are exposed to client code
 
-## 18. Storage
+## 19. Storage
 
 **Architecture:**
 - **Bucket:** `business-logos`
@@ -523,7 +628,7 @@ invoice_items
 2. Set it to **Private**
 3. Run the storage RLS migration (`supabase/migrations/20240101000001_private_storage_rls.sql`) in the SQL Editor
 
-## 19. Authentication
+## 20. Authentication
 
 Supabase Auth is used for all authentication.
 
@@ -539,40 +644,44 @@ Supabase Auth is used for all authentication.
 - Proxy middleware (`proxy.ts`) protects `/dashboard`, `/dashboard/onboarding`, and all non-public routes
 - Unauthenticated users are redirected to `/auth/login`
 
-## 20. Current Limitations
+## 21. Current Limitations
 
 The following features are NOT yet implemented:
 
 - Invoice creation, editing, and management
-- Customer management (create, edit, delete, search, view history)
 - PDF generation and download
 - Invoice template rendering system (templates are stored but not rendered)
 - AI Quick Invoice
 - Email sending and sharing
 - Payment integration
 - Invoice numbering automation
-- Dynamic currency display (currently hardcoded to NGN in some places)
 - Search functionality (search input exists but is not wired)
-- `/invoices`, `/customers`, `/settings` routes exist as navigation placeholders only
+- `/invoices`, `/settings` routes exist as navigation placeholders only
+- Invoice numbering automation
+- Dynamic currency display (currently hardcoded to NGN in some places)
+- `/invoices`, `/settings` routes exist as navigation placeholders only
 
-## 21. Future Passes
+## 22. Future Passes
 
 **PASS 0** — Foundation — COMPLETE  
 **PASS 1** — Marketing Website — COMPLETE  
 **PASS 2** — Authentication + Theming — COMPLETE  
 **PASS 3** — Dashboard + Business Onboarding + Initial Database Architecture — COMPLETE  
+**PASS 4** — Invoice Management (list, search, filters, responsive invoice cards, invoice actions) — COMPLETE  
+**PASS 5** — Customer Management — COMPLETE  
 
-**PASS 4** — Customers + Invoice Creation  
-**PASS 5** — Invoice Templates + PDF Generation  
-**PASS 6** — AI Quick Invoice + Smart Features  
-**PASS 7** — Email + Sharing + Final MVP Polish  
+**PASS 6** — Invoice Builder — NEXT  
+**PASS 7** — Customers and Settings (advanced) — PENDING  
+**PASS 8** — PDF Generation — PENDING  
+**PASS 9** — Database Integration + RLS verification — PENDING  
+**PASS 10** — Product Polish — PENDING  
 
 Then:
 - MVP TESTING
 - DEPLOYMENT
 - REAL USER TESTING
 
-## 22. PASS 4 Preparation
+## 23. PASS 4 Preparation
 
 PASS 4 is the next development task. It should focus on:
 
@@ -600,11 +709,11 @@ Do not begin AI.
 Do not begin email.  
 Do not begin payments.
 
-## 23. Zero-Capital Requirement
+## 24. Zero-Capital Requirement
 
 The architecture should remain compatible with free tiers wherever possible. Do not introduce paid infrastructure without explicit approval.
 
-## 24. Development Rules
+## 25. Development Rules
 
 - Inspect the repository before modifying
 - Ask when requirements are ambiguous
@@ -617,20 +726,20 @@ The architecture should remain compatible with free tiers wherever possible. Do 
 - Maintain accessibility
 - Avoid unnecessary dependencies
 
-## 25. Next Immediate Task
+## 26. Next Immediate Task
 
-**NEXT TASK: PASS 4 — Customers + Invoice Creation**
+**NEXT TASK: PASS 6 — Invoice Builder**
 
-Before PASS 4:
+Before PASS 6:
 - read `AGENTS.md`
 - read `REMITOVATE_HANDOVER.md`
-- inspect repository
-- inspect database schema
+- inspect the existing invoice/database architecture
+- inspect the existing dashboard and customer flows
 - understand current authentication / business ownership architecture
-- create a PASS 4 implementation plan
+- create a PASS 6 implementation plan
 - ask questions about genuine ambiguities before coding
 
-Do not begin PASS 5.  
+Do not begin PASS 7.  
 Do not begin PDF generation.  
 Do not begin AI.  
 Do not begin email.  
