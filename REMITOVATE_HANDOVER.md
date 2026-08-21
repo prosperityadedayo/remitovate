@@ -6,22 +6,27 @@ Remitovate is a modern invoicing and payment assistant for freelancers, creators
 
 The product should feel like a real SaaS product, not a portfolio demo, and should reduce repetitive work by letting users set up their business once and then quickly create invoices without repeatedly entering business information, logos, brand colours, invoice numbering, currency, payment terms, or customer information.
 
-## 2. Company Ownership
+**Company attribution:** Remitovate — by Perfect Eagle Complete Business Solutions  
+**Company website:** https://prosperityadedayo.github.io/perfect-eagle-complete-business-solution/
 
-Remitovate is a product developed by **Perfect Eagle Complete Business Solutions**.
+Supabase is ONLY part of the technical infrastructure. Do NOT describe Remitovate as "powered by Supabase" or imply that Supabase owns, operates, or powers the business. Supabase should only appear where a technical attribution, documentation, configuration, or legal requirement genuinely requires it.
 
-Official company website: https://prosperityadedayo.github.io/perfect-eagle-complete-business-solution/
+## 2. Product Philosophy
 
-Supabase is ONLY part of the technical infrastructure. Do NOT describe Remitovate as "powered by Supabase" or imply that Supabase owns, operates, or powers the business.
+The product reduces repetitive work. A user sets up their business once and can then return later to quickly create invoices without re-entering:
 
-When company attribution is required, use: **"Remitovate — by Perfect Eagle Complete Business Solutions"**
-
-Supabase should only appear where a technical attribution, documentation, configuration, or legal requirement genuinely requires it.
+- business information
+- logo
+- brand colours
+- invoice numbering
+- currency
+- payment terms
+- customer information
 
 ## 3. Current Technology Stack
 
 **Frontend**
-- Next.js 16 (App Router)
+- Next.js 16 App Router
 - TypeScript (strict mode enabled)
 - Tailwind CSS v3.4
 - Lucide React icons
@@ -30,8 +35,8 @@ Supabase should only appear where a technical attribution, documentation, config
 
 **Backend / Infrastructure**
 - Supabase Auth
-- Supabase PostgreSQL (not yet configured with application tables)
-- Supabase Storage (planned for business logos)
+- Supabase PostgreSQL
+- Supabase Storage
 - Vercel (deployment target)
 
 **UI Primitives**
@@ -52,9 +57,6 @@ remitovate/
     globals.css
     layout.tsx
     page.tsx
-    favicon.ico
-    opengraph-image.png
-    twitter-image.png
     auth/
       login/page.tsx
       sign-up/page.tsx
@@ -66,11 +68,10 @@ remitovate/
       error/page.tsx
       sign-up-success/page.tsx
       logout/route.ts
-    protected/
+    dashboard/
       layout.tsx
       page.tsx
-    dashboard/
-      page.tsx
+      onboarding/page.tsx
   components/
     ui/
       badge.tsx
@@ -102,6 +103,17 @@ remitovate/
     update-password-form.tsx
     logout-button.tsx
     theme-switcher.tsx
+    dashboard/
+      sidebar.tsx
+      header.tsx
+      account-menu.tsx
+      dashboard-shell.tsx
+      mobile-sidebar.tsx
+      logo-upload.tsx
+  actions/
+    business.ts
+    dashboard.ts
+    upload.ts
   lib/
     supabase/
       server.ts
@@ -119,6 +131,10 @@ remitovate/
   eslint.config.mjs
   postcss.config.mjs
   .env.example
+  supabase/
+    migrations/
+      20240101000000_init_schema.sql
+      20240101000001_private_storage_rls.sql
 ```
 
 ## 5. Current Dependencies
@@ -153,7 +169,9 @@ No additional dependencies beyond the baseline were added in PASS 1 or PASS 2.
 
 The developer must create `.env.local` from `.env.example` and fill in real values. These files are not tracked in version control.
 
-**No production database tables created yet.** Only Supabase Auth is being used. Application tables (profiles, businesses, customers, invoices, invoice_items) have not been created.
+**Database:** Application tables have been created via migration and Row Level Security is enabled. The initial schema migration includes `profiles`, `businesses`, `customers`, `invoices`, and `invoice_items`.
+
+**Storage:** The `business-logos` bucket is configured as **Private** with path-based Storage RLS policies. Signed URLs are used when displaying logos.
 
 ## 7. Authentication Status
 
@@ -180,12 +198,12 @@ Implemented using Supabase Auth with cookie-based server-side session management
 - `/dashboard` requires authentication and redirects unauthenticated users to `/auth/login`.
 - Proxy handles protection for all non-public routes.
 
-## 8. Current UI Pages
+## 8. Current Routes
 
-**Public:**
+**Public routes:**
 - `/` — Full marketing website with Remitovate branding, hero, invoice preview, features, how it works, AI Quick Invoice, mobile section, CTA, and footer
 
-**Auth:**
+**Authentication routes:**
 - `/auth/login`
 - `/auth/sign-up`
 - `/auth/signup`
@@ -195,16 +213,34 @@ Implemented using Supabase Auth with cookie-based server-side session management
 - `/auth/confirm`
 - `/auth/error`
 - `/auth/sign-up-success`
-- `/auth/logout` (POST route)
+- `/auth/logout` (POST)
 
-**Protected:**
-- `/dashboard` — Placeholder confirming authentication works; full dashboard coming in PASS 3
-- `/protected` — Legacy placeholder page from PASS 0
+**Protected routes:**
+- `/dashboard` — Authenticated dashboard with sidebar, header, account menu, stats cards, recent invoices, quick actions, and onboarding gate
+- `/dashboard/onboarding` — First-time business setup (name, email, phone, address, country, currency, logo upload, brand colour, invoice prefix, starting number, payment terms, template)
+
+**Planned / future routes (not yet implemented):**
+- `/invoices` — Invoice list and management (PASS 4+)
+- `/customers` — Customer management (PASS 4+)
+- `/settings` — Business settings (PASS 7+)
 
 ## 9. Current Design System
 
-**Colors:** Remitovate brand colors defined in `app/globals.css`.
-- Primary: Indigo (`#4F46E5` equivalent in HSL: `238 84% 67%`)
+Remitovate uses a premium SaaS design language:
+
+- Clean, minimal, professional, trustworthy
+- Financial/productivity oriented
+- Indigo primary (`#4F46E5`) used strategically for CTAs, highlights, and active states
+- Neutral whites and slates for backgrounds and surfaces
+- Strong typographic hierarchy with Geist Sans
+- Generous whitespace and consistent vertical rhythm
+- Subtle motion (hover transitions, button transitions, dropdown transitions, page transitions, skeleton loading)
+- Lucide React icons throughout
+- No emojis in UI
+- Mobile-first responsive design
+
+**Colors (CSS variables in `app/globals.css`):**
+- Primary: `238 84% 67%`
 - Primary dark: `#4338CA`
 - Primary light: `#EEF2FF`
 - Background: `#FFFFFF`
@@ -219,13 +255,12 @@ Implemented using Supabase Auth with cookie-based server-side session management
 - Info: `#2563EB`
 
 **Dark mode tokens:**
-- Background: `#0B1120`
-- Surface: `#111827`
-- Elevated surface: `#172033`
-- Primary text: `#F8FAFC`
-- Secondary text: `#CBD5E1`
-- Muted text: `#94A3B8`
-- Border: `#1E293B`
+- Background: `222.2 47% 8%`
+- Surface: `217.2 33% 11%`
+- Primary text: `210 40% 98%`
+- Secondary text: `215 16% 65%`
+- Muted text: `215 16% 65%`
+- Border: `217.2 33% 17%`
 
 **Typography:** Geist Sans via `next/font/google`. No custom font files.
 
@@ -251,6 +286,14 @@ Implemented using Supabase Auth with cookie-based server-side session management
 - `alert.tsx`
 - `toast.tsx` + `Toaster` export
 
+**Dashboard components:**
+- `sidebar.tsx` — Desktop sidebar with Remitovate branding and navigation
+- `header.tsx` — Sticky header with hamburger menu (mobile), search placeholder, theme switcher, and account menu
+- `account-menu.tsx` — Dropdown with user email, business logo avatar, and logout
+- `dashboard-shell.tsx` — Client shell managing sidebar, header, main content, and mobile drawer state
+- `mobile-sidebar.tsx` — Slide-out drawer for mobile navigation with overlay and Escape key support
+- `logo-upload.tsx` — Logo upload with 1:1 canvas crop and 2MB max validation
+
 **Marketing components:**
 - `navbar.tsx` — Sticky responsive navbar with auth-aware navigation and theme switcher
 - `hero-section.tsx` — Hero with eyebrow badge, headline, CTAs, and invoice preview
@@ -273,35 +316,37 @@ Implemented using Supabase Auth with cookie-based server-side session management
 
 ## 10. Current Git State
 
-**Branch:** `main`
-**Remote:** `origin` → `https://github.com/prosperityadedayo/remitovate.git`
-**Status:** Working tree has uncommitted changes from PASS 1 and PASS 2 implementation.
+**Branch:** `main`  
+**Remote:** `origin` → `https://github.com/prosperityadedayo/remitovate.git`  
 **Recent commits:**
-- `aa0c4cb` — feat: establish remitovate foundation
+- `3986635` — fix: secure business logo storage
+- `7b9dc5d` — feat: build dashboard and business onboarding
+- `cc92106` — docs: update project handover after pass 2
+- `351f83e` — feat: implement authentication and theming
+- `1c57226` — feat: build remitovate marketing website
+- `9d5c4ef` — docs: add project handover
+- `aa0c4cb` — feat: eatablish remitovate foundation
 - `e487300` — Initial commit from Create Next App
 
 ## 11. What PASS 0 Completed
 
 - Verified Next.js, TypeScript, Tailwind, and Supabase client architecture.
 - Established design tokens with Remitovate color system in `app/globals.css`.
-- Added foundation UI primitives (separator, avatar, skeleton, alert, toast).
-- Created `types/index.ts` with base domain types (Profile, Business, Customer, Invoice, InvoiceItem).
-- Removed starter-kit artifacts (tutorial components, deploy button, env-var warning, logos, hero).
+- Added foundation UI primitives.
+- Created `types/index.ts` with base domain types.
+- Removed starter-kit artifacts.
 - Updated root layout metadata to Remitovate branding.
-- Configured ESLint to ignore `.next/` generated artifacts.
 - Verified `npm run lint` passes.
 - Verified `npm run build` passes.
 
 ## 12. What PASS 0 Intentionally Did Not Implement
 
-- No production database tables (profiles, businesses, customers, invoices, invoice_items).
+- No production database tables.
 - No Row Level Security (RLS) policies.
 - No real Supabase data integration.
 - No dashboard, invoice management, customers, settings, or PDF generation.
 - No marketing website beyond the home page placeholder.
 - No dark mode support.
-- No AI features.
-- No payment integrations.
 
 ## 13. PASS 1 — Marketing Website (COMPLETE)
 
@@ -309,20 +354,13 @@ PASS 1 implemented the full public-facing marketing website:
 
 - **Navbar** — Sticky top navigation with Remitovate branding, section links, Sign in / Sign up CTAs, and responsive mobile menu
 - **Hero** — Eyebrow badge, main headline, supporting copy, primary and secondary CTAs, and invoice preview visual
-- **Invoice Preview** — Realistic invoice mockup (INV-0001, Sarah Johnson, ₦170,000 total, Draft status)
+- **Invoice Preview** — Realistic invoice mockup
 - **Features** — 6 feature cards in a responsive grid with Lucide icons
 - **How It Works** — 3-step numbered process with desktop connector lines
 - **AI Quick Invoice** — Split layout highlighting natural language to structured invoice transformation
 - **Mobile Section** — Phone mockup showing invoice list with Draft/Paid statuses
 - **CTA** — Final conversion section with primary and secondary actions
-- **Footer** — Clean footer with Product, Account, and Company columns; company attribution to Perfect Eagle Complete Business Solutions
-
-**Design characteristics:**
-- Premium, minimal, professional, trustworthy
-- Mobile-first responsive design
-- Lucide React icons throughout; no emojis
-- Subtle hover transitions and animations
-- Indigo primary used strategically
+- **Footer** — Clean footer with company attribution to Perfect Eagle Complete Business Solutions
 
 ## 14. PASS 2 — Authentication and Theming (COMPLETE)
 
@@ -347,187 +385,253 @@ PASS 2 implemented Supabase-powered authentication and a complete theme system:
 - **Dark mode design** — Deliberate dark tokens for backgrounds, surfaces, text, and borders
 - **Theme-aware components** — Marketing components use `bg-background`, `text-foreground`, `border-border` instead of hardcoded colors
 
-## 15. Supabase Database Status
+## 15. PASS 3 — Dashboard + Business Onboarding + Initial Database Architecture (COMPLETE)
 
-Supabase Auth is currently being used for authentication only.
+PASS 3 implemented the authenticated application shell, business onboarding flow, and the complete initial database architecture with Row Level Security.
 
-The following application tables are NOT yet implemented:
-- profiles
-- businesses
-- customers
-- invoices
-- invoice_items
-- payments
-- subscriptions
-- notifications
-- email_logs
-- ai_generations
+**Application shell:**
+- **Dashboard layout** — `/dashboard/layout.tsx` with auth gate, sidebar, header, and mobile drawer shell
+- **Desktop sidebar** — Remitovate branding, navigation links (Dashboard, Invoices, Customers, Settings), and company attribution
+- **Mobile navigation** — Hamburger button toggles a slide-out drawer with overlay, Escape key support, and ARIA attributes
+- **Header** — Sticky header with hamburger menu (mobile), search placeholder, theme switcher, and account menu
+- **Account menu** — Dropdown showing authenticated user email, business logo avatar (with initials fallback), and logout
+- **Mobile responsiveness** — Sidebar hidden on mobile, replaced by hamburger drawer; bottom mobile nav removed to avoid redundancy
 
-The application data model will be designed deliberately in a future pass before any tables are created.
+**Business onboarding:**
+- **Onboarding page** — `/dashboard/onboarding` serves as the first-time business setup flow
+- **Business details** — Name, email, phone, address, country
+- **Branding** — Logo upload with 1:1 canvas crop and 2MB max validation, brand colour picker
+- **Invoice preferences** — Currency selection, invoice prefix, starting invoice number, default payment terms, invoice template
+- **Onboarding gate** — New users without a business are redirected to `/dashboard/onboarding`; returning users go straight to `/dashboard`
+- **Server action** — `createBusiness` creates the `profiles` and `businesses` records, uploads the logo to Supabase Storage, and redirects to `/dashboard`
 
-## 16. Current Routes
+**Dashboard:**
+- **Statistics cards** — Total Invoiced, Paid, Outstanding, Overdue with currency formatting
+- **Recent invoices** — List of recent invoices with customer name, status badge, total, and due date
+- **Empty states** — Friendly empty states when no invoices exist
+- **Quick actions** — Create Invoice, Add Customer, Business Settings (links to future pages)
+- **Getting started guide** — 3-step checklist for new users
 
-**Public routes:**
-- `/` — Marketing home page
+**Database architecture:**
+- **profiles** — Linked to `auth.users(id)`; stores email and full_name
+- **businesses** — One business per authenticated user (`user_id` is unique); stores business details, branding, and invoice preferences
+- **customers** — Linked to `businesses(id)` and `auth.users(id)`; stores customer contact details
+- **invoices** — Linked to `businesses(id)` and `customers(id)`; stores invoice metadata, totals, status, and payment info
+- **invoice_items** — Linked to `invoices(id)`; stores line item details, quantities, pricing, discounts, and tax
 
-**Authentication routes:**
-- `/auth/login`
-- `/auth/sign-up`
-- `/auth/signup`
-- `/auth/forgot-password`
-- `/auth/update-password`
-- `/auth/reset-password`
-- `/auth/confirm`
-- `/auth/error`
-- `/auth/sign-up-success`
-- `/auth/logout` (POST)
+**Row Level Security:**
+- All application tables have RLS enabled
+- Users can only access their own `profiles`, `businesses`, `customers`, `invoices`, and `invoice_items`
+- Invoice and invoice item access is scoped through the owning business
+- Storage RLS policies enforce per-user ownership of logos via path-based checks
 
-**Protected routes:**
-- `/dashboard` — Authenticated placeholder
-- `/protected` — Legacy placeholder
+**Storage:**
+- **Bucket:** `business-logos`
+- **Access:** Private
+- **Path structure:** `{user_id}/{timestamp}.{extension}`
+- **Display:** Signed URLs generated server-side via `getSignedLogoUrl()` with 1-year expiration
+- **Ownership:** Storage RLS policies verify `auth.uid()::text = storage.foldername(name)[1]` to ensure users can only access their own logos
 
-## 17. Current UI
+**Authentication protection:**
+- `/dashboard` and `/dashboard/onboarding` require authentication
+- Server-side auth gate redirects unauthenticated users to `/auth/login`
+- Legacy `/protected` route redirects to `/dashboard`
 
-**Marketing components (`components/marketing/`):**
-- `navbar.tsx`
-- `hero-section.tsx`
-- `invoice-preview.tsx`
-- `features-section.tsx`
-- `how-it-works.tsx`
-- `ai-quick-invoice.tsx`
-- `mobile-section.tsx`
-- `cta-section.tsx`
-- `footer.tsx`
+## 16. Database Architecture
 
-**Authentication components:**
-- `login-form.tsx`
-- `sign-up-form.tsx`
-- `forgot-password-form.tsx`
-- `update-password-form.tsx`
-- `auth-button.tsx`
-- `logout-button.tsx`
-- `theme-switcher.tsx`
+**Ownership model:**
 
-**UI primitives (`components/ui/`):**
-- `badge.tsx`, `button.tsx`, `card.tsx`, `checkbox.tsx`, `dropdown-menu.tsx`, `input.tsx`, `label.tsx`, `separator.tsx`, `avatar.tsx`, `skeleton.tsx`, `alert.tsx`, `toast.tsx`
+```
+auth.users
+    ↓
+profiles
 
-## 18. Design System
+auth.users
+    ↓
+businesses
+    ↓
+customers
+    ↓
+invoices
+    ↓
+invoice_items
+```
 
-Remitovate uses a premium SaaS design language:
+**MVP decision:** One business per authenticated user. Multi-business support is not implemented.
 
-- Clean, minimal, professional, trustworthy
-- Financial/productivity oriented
-- Indigo primary (`#4F46E5`) used strategically for CTAs, highlights, and active states
-- Neutral whites and slates for backgrounds and surfaces
-- Strong typographic hierarchy with Geist Sans
-- Generous whitespace and consistent vertical rhythm
-- Subtle motion (hover transitions, button transitions, dropdown transitions)
-- Lucide React icons throughout
-- No emojis in UI
-- Mobile-first responsive design
+**Tables:**
 
-## 19. Product Workflow
+| Table | Purpose | Status |
+|-------|---------|--------|
+| `profiles` | User profile extension (email, full_name) | Implemented |
+| `businesses` | Business details, branding, invoice preferences | Implemented |
+| `customers` | Customer contact details per business | Database ready; CRUD not yet implemented |
+| `invoices` | Invoice headers with totals and status | Database ready; CRUD not yet implemented |
+| `invoice_items` | Invoice line items | Database ready; CRUD not yet implemented |
 
-**Intended eventual user workflow:**
-1. Sign up
-2. Business setup
-3. Upload logo
-4. Choose template
-5. Add customer
-6. Create invoice
-7. Download PDF
-8. Send/share
-9. Track status
+**Notes:**
+- `customers`, `invoices`, and `invoice_items` tables exist as database groundwork for future passes.
+- Their full application functionality (create, edit, delete, list, search, PDF generation) has NOT yet been implemented.
+- Do not claim customer management, invoice creation, or PDF generation as implemented features.
 
-**Planned AI Quick Invoice workflow:**
-1. Natural language description
-2. Structured invoice
-3. Professional invoice
+**Schema rules:**
+- UUID primary keys
+- Foreign keys with `ON DELETE CASCADE`
+- Timestamps (`created_at`, `updated_at`)
+- Sensible defaults (NGN currency, Net 30 terms, modern template, draft status)
+- Indexes on foreign keys and common query columns
+- No exposed secrets
 
-These workflows are planned and not yet implemented.
+## 17. Security
 
-## 20. Future Pass Roadmap
+**Row Level Security:**
+- RLS is enabled on all application tables (`profiles`, `businesses`, `customers`, `invoices`, `invoice_items`)
+- Users can only view, insert, update, and delete their own data
+- Business-scoped tables (`customers`, `invoices`, `invoice_items`) enforce ownership through the linked business record
 
-**PASS 0** — Foundation — COMPLETE
+**Ownership rules:**
+- A user can only access their own `profiles` record
+- A user can only access their own `businesses` record
+- A user can only access `customers` belonging to their business
+- A user can only access `invoices` belonging to their business
+- A user can only access `invoice_items` belonging to their business invoices
 
-**PASS 1** — Marketing Website — COMPLETE
+**Storage security:**
+- `business-logos` bucket is **Private**
+- Storage RLS policies enforce per-user ownership based on the storage object path
+- Users can only upload, view, update, or delete objects in paths that begin with their own `auth.uid()`
+- Signed URLs are used for display; public URLs are not used
 
-**PASS 2** — Supabase Auth + Route Protection + Themes — COMPLETE
+**Authentication security:**
+- Supabase Auth handles authentication; no custom password authentication
+- Sessions are managed via secure HTTP-only cookies
+- Proxy middleware refreshes sessions on every request
+- No service-role keys are exposed to client code
 
-**PASS 3** — Dashboard + Business Onboarding — NEXT
+## 18. Storage
 
-**PASS 4** — Customers + Invoice Creation
+**Architecture:**
+- **Bucket:** `business-logos`
+- **Access:** Private
+- **Path structure:** `{user_id}/{timestamp}.{extension}`
+- **Upload:** Server-side via `createBusiness` action; validates 2MB max and crops to 1:1 square before upload
+- **Display:** Signed URLs generated by `getSignedLogoUrl()` server action with 1-year expiration
+- **Ownership enforcement:** Storage RLS policies check `auth.uid()::text = storage.foldername(name)[1]`
 
-**PASS 5** — Invoice Templates + PDF Generation
+**Manual setup required:**
+1. Create the `business-logos` bucket in Supabase Dashboard → Storage
+2. Set it to **Private**
+3. Run the storage RLS migration (`supabase/migrations/20240101000001_private_storage_rls.sql`) in the SQL Editor
 
-**PASS 6** — AI Quick Invoice + Smart Features
+## 19. Authentication
 
-**PASS 7** — Email + Sharing + Final MVP Polish
+Supabase Auth is used for all authentication.
+
+**Flows:**
+- **Sign up** — Email/password with email confirmation redirect to `/dashboard`
+- **Login** — Email/password with redirect to `/dashboard`
+- **Logout** — Server-side POST route
+- **Forgot password** — Email reset flow
+- **Update password** — Set new password after reset
+- **Session persistence** — Cookie-based via `@supabase/ssr`
+
+**Route protection:**
+- Proxy middleware (`proxy.ts`) protects `/dashboard`, `/dashboard/onboarding`, and all non-public routes
+- Unauthenticated users are redirected to `/auth/login`
+
+## 20. Current Limitations
+
+The following features are NOT yet implemented:
+
+- Invoice creation, editing, and management
+- Customer management (create, edit, delete, search, view history)
+- PDF generation and download
+- Invoice template rendering system (templates are stored but not rendered)
+- AI Quick Invoice
+- Email sending and sharing
+- Payment integration
+- Invoice numbering automation
+- Dynamic currency display (currently hardcoded to NGN in some places)
+- Search functionality (search input exists but is not wired)
+- `/invoices`, `/customers`, `/settings` routes exist as navigation placeholders only
+
+## 21. Future Passes
+
+**PASS 0** — Foundation — COMPLETE  
+**PASS 1** — Marketing Website — COMPLETE  
+**PASS 2** — Authentication + Theming — COMPLETE  
+**PASS 3** — Dashboard + Business Onboarding + Initial Database Architecture — COMPLETE  
+
+**PASS 4** — Customers + Invoice Creation  
+**PASS 5** — Invoice Templates + PDF Generation  
+**PASS 6** — AI Quick Invoice + Smart Features  
+**PASS 7** — Email + Sharing + Final MVP Polish  
 
 Then:
 - MVP TESTING
 - DEPLOYMENT
 - REAL USER TESTING
 
-## 21. PASS 3 Preview
+## 22. PASS 4 Preparation
 
-PASS 3 will focus on:
-- Authenticated dashboard
-- Business onboarding
-- Business profile
-- Logo upload
-- Brand colour selection
-- Invoice preferences
-- Invoice numbering preferences
-- Currency selection
-- Invoice template selection
-- Supabase Storage for business logos
-- Database schema design
-- Row Level Security (RLS)
+PASS 4 is the next development task. It should focus on:
 
-**Important:** The database schema must be designed deliberately before creating production tables. Every user's data must be isolated using proper Supabase Row Level Security.
+- Customer management (create, edit, delete, list, search/filter)
+- Invoice creation workflow
+- Invoice items (add, remove, edit)
+- Calculations (subtotal, discount, tax, total)
+- Invoice numbering
+- Invoice validation
+- Invoice persistence
+- Invoice list / basic invoice management
 
-## 22. Important Product Principles
+Before PASS 4:
+1. Read `AGENTS.md`
+2. Read `REMITOVATE_HANDOVER.md`
+3. Inspect the repository
+4. Inspect database schema
+5. Understand current authentication / business ownership architecture
+6. Create a PASS 4 implementation plan
+7. Ask questions about genuine ambiguities before coding
 
-1. Remitovate is a real product, not merely a CRUD portfolio project.
-2. The core value proposition is reducing repetitive invoice creation.
-3. Users configure their business once and reuse that information.
-4. Invoice numbers should be managed automatically.
-5. Users should not repeatedly upload their logo.
-6. Users should be able to save customers.
-7. Professional invoice templates are a core feature.
-8. PDF generation is a core MVP capability.
-9. AI Quick Invoice is a differentiating feature but the core invoicing system must not depend on AI.
-10. The application should remain zero-capital/free-tier friendly during MVP development.
-11. Do not introduce paid APIs unnecessarily.
-12. Do not implement future functionality early.
-13. Ask the developer when a major product or architectural decision is unclear rather than guessing.
+Do not begin PASS 5.  
+Do not begin PDF generation.  
+Do not begin AI.  
+Do not begin email.  
+Do not begin payments.
 
-## 23. Security Principles
+## 23. Zero-Capital Requirement
 
-- Supabase Auth is responsible for authentication.
-- Do not build custom password authentication.
-- Never store passwords.
-- Never expose service-role keys to client code.
-- Authentication sessions use the established Supabase/Next.js cookie-based architecture.
-- Future application tables must use Row Level Security.
-- Users must only access their own business/customer/invoice data.
+The architecture should remain compatible with free tiers wherever possible. Do not introduce paid infrastructure without explicit approval.
 
-## 24. Next Immediate Task
+## 24. Development Rules
 
-The next task is:
+- Inspect the repository before modifying
+- Ask when requirements are ambiguous
+- Do not guess important architecture
+- Do not implement future passes early
+- Run `npm run lint` and `npm run build` after major changes
+- Do not commit automatically
+- Preserve working features
+- Maintain mobile responsiveness
+- Maintain accessibility
+- Avoid unnecessary dependencies
 
-**PASS 3 — Dashboard + Business Onboarding + Initial Application Data Architecture**
+## 25. Next Immediate Task
 
-Before implementation:
-1. Review the existing repository.
-2. Review this handover.
-3. Design the database schema before creating application tables.
-4. Define relationships.
-5. Define Row Level Security requirements.
-6. Determine the appropriate Supabase Storage strategy for business logos.
-7. Ask the developer about any genuine ambiguity.
+**NEXT TASK: PASS 4 — Customers + Invoice Creation**
 
-Do not implement Pass 4 functionality.
-Do not implement customer management or full invoice creation yet.
-Do not begin Pass 3 automatically. The developer will explicitly authorize Pass 3.
+Before PASS 4:
+- read `AGENTS.md`
+- read `REMITOVATE_HANDOVER.md`
+- inspect repository
+- inspect database schema
+- understand current authentication / business ownership architecture
+- create a PASS 4 implementation plan
+- ask questions about genuine ambiguities before coding
+
+Do not begin PASS 5.  
+Do not begin PDF generation.  
+Do not begin AI.  
+Do not begin email.  
+Do not begin payments.
