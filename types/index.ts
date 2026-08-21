@@ -73,11 +73,18 @@ export interface InvoiceItem {
   updated_at: string;
 }
 
+export interface BusinessSetupStatus {
+  hasProfile: boolean;
+  hasCustomers: boolean;
+  hasInvoices: boolean;
+}
+
 export interface DashboardStats {
   totalInvoiced: number;
   paid: number;
   outstanding: number;
   overdue: number;
+  currency: string;
 }
 
 export interface RecentInvoice {
