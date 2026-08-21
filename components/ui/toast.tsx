@@ -8,7 +8,7 @@ type ToastProps = {
   id: string;
   title?: string;
   description?: string;
-  variant?: "default" | "destructive";
+  variant?: "default" | "destructive" | "success";
 };
 
 type Toast = ToastProps & {
@@ -107,26 +107,44 @@ function useToast() {
   };
 }
 
-const Toaster = () => {
+  const Toaster = () => {
   const { toasts } = useToast();
 
   return (
-    <div className="fixed bottom-0 right-0 z-50 flex max-h-screen w-full flex-col-reverse gap-2 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]">
+    <div className="fixed bottom-0 right-0 z-50 flex max-h-screen w-full flex-col-reverse gap-3 p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]">
       {toasts.map((toastItem) => (
         <div
           key={toastItem.id}
           className={cn(
-            "transform rounded-lg border bg-background p-4 shadow-lg transition-all duration-300",
+            "group relative flex items-start gap-3 overflow-hidden rounded-xl border bg-background p-4 shadow-lg transition-all duration-300",
             toastItem.open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0",
-            toastItem.variant === "destructive" && "border-destructive"
+            toastItem.variant === "destructive" && "border-destructive/60 bg-destructive/5",
+            toastItem.variant === "success" && "border-primary/40 bg-primary/5",
+            !toastItem.variant && "border-border"
           )}
         >
-          {toastItem.title && (
-            <div className="font-semibold text-foreground">{toastItem.title}</div>
+          {toastItem.variant === "success" && (
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
           )}
-          {toastItem.description && (
-            <div className="text-sm text-muted-foreground">{toastItem.description}</div>
+          {toastItem.variant === "destructive" && (
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </div>
           )}
+          <div className="flex-1">
+            {toastItem.title && (
+              <div className="text-sm font-semibold text-foreground">{toastItem.title}</div>
+            )}
+            {toastItem.description && (
+              <div className="mt-0.5 text-sm text-muted-foreground">{toastItem.description}</div>
+            )}
+          </div>
         </div>
       ))}
     </div>

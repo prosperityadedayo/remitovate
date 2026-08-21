@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { RecentInvoices } from "@/components/dashboard/recent-invoices";
 import { GettingStarted } from "@/components/dashboard/getting-started";
+import Link from "next/link";
 import { getDashboardStats, getRecentInvoices, getBusinessSetupStatus, getBusinessId } from "@/app/actions/dashboard";
 
 async function DashboardGate() {
@@ -182,7 +183,7 @@ function QuickActions() {
       <div>
         <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
         <div className="space-y-3">
-          <a
+          <Link
             href="/invoices"
             className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
           >
@@ -193,8 +194,8 @@ function QuickActions() {
               <p className="font-medium">New Invoice</p>
               <p className="text-xs text-muted-foreground">Create and send an invoice</p>
             </div>
-          </a>
-          <a
+          </Link>
+          <Link
             href="/customers"
             className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
           >
@@ -205,7 +206,7 @@ function QuickActions() {
               <p className="font-medium">Add Customer</p>
               <p className="text-xs text-muted-foreground">Add a new customer</p>
             </div>
-          </a>
+          </Link>
         </div>
       </div>
     </div>
