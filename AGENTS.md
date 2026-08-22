@@ -479,138 +479,103 @@ Do not commit unless explicitly requested.
 
 ---
 
-# DEVELOPMENT PASSES
+## DEVELOPMENT PASSES
 
-The project will be built in controlled passes.
+The project is built in controlled passes.
 
 Do not implement future passes unless explicitly instructed.
 
-## PASS 0
+### PASS 0 — Foundation (COMPLETE)
 
-Foundation
+- Verify Next.js, TypeScript, Tailwind, and Supabase client architecture
+- Establish design tokens with Remitovate color system in `app/globals.css`
+- Add foundation UI primitives (card, input, button, badge, etc.)
+- Create `types/index.ts` with base domain types
+- Establish Supabase client architecture (`lib/supabase/server.ts`, `client.ts`, `proxy.ts`)
+- Verify `npm run lint` and `npm run build` pass
 
-- verify Next.js
-- verify Tailwind
-- verify Supabase configuration
-- create project instructions
-- establish design tokens
-- establish reusable UI foundation
-- establish Supabase client architecture
-- verify development environment
+### PASS 1 — Marketing Website (COMPLETE)
 
-## PASS 1
+- Navbar, hero, invoice preview, features, how it works, AI Quick Invoice, mobile section, CTA, footer
+- Full public-facing website at `/`
 
-Marketing website
+### PASS 2 — Authentication + Business Onboarding (COMPLETE)
 
-- navbar
-- hero
-- invoice preview
-- features
-- how it works
-- AI Quick Invoice section
-- mobile section
-- CTA
-- footer
+- **Authentication:** Signup, login, logout, forgot password, reset/update password, email confirm, error page
+- **Business onboarding:** `/dashboard/onboarding` with all business fields, logo upload, brand colour, invoice preferences
+- **Theming:** Light/dark/system theme support with theme switcher
+- Supabase Auth integration with cookie-based session management
+- Route protection via proxy middleware
+- Auth-aware navigation
 
-## PASS 2
+### PASS 3 — Dashboard Foundation + Initial Database (COMPLETE)
 
-Authentication
+- **Application shell:** Sidebar, mobile navigation, header, account menu, dashboard layout, protected area
+- **Database architecture:** `profiles`, `businesses`, `customers`, `invoices`, `invoice_items` tables with full RLS
+- **Storage:** Private `business-logos` bucket with per-user path-based RLS
+- **Onboarding gate:** Redirect to `/dashboard/onboarding` if no business
 
-- signup
-- login
-- forgot password
-- auth states
-- Supabase Auth integration
+### PASS 4 — Dashboard Productionization (COMPLETE)
 
-## PASS 3
+- **Dashboard stats:** Total Invoiced, Paid, Outstanding, Overdue via `get_dashboard_stats` RPC
+- **Recent invoices:** 5 most recent with customer name, status, total, due date
+- **Quick actions:** New Invoice, Add Customer
+- **Getting started:** 3-step checklist with setup indicator
+- **Empty states and skeleton loading** throughout
 
-Application shell
+### PASS 5 — Customers (COMPLETE)
 
-- sidebar
-- mobile navigation
-- header
-- account menu
-- dashboard layout
-- protected application area
+- **Customer list:** Search (debounced, URL-synced), count, responsive layout, empty state, skeleton loading
+- **Create customer:** Form with validation, loading state, toast feedback, redirect
+- **Customer detail:** Contact info grid, breadcrumbs, edit/delete actions, invoice history empty state
+- **Edit customer:** Pre-filled form, redirects to detail on success
+- **Delete customer:** Safety check (blocked if invoices exist), two-step confirmation, toast feedback
+- Server actions: `getCustomers`, `getCustomerById`, `createCustomer`, `updateCustomer`, `deleteCustomer`
+- Migration: `20240101000003_customer_deletion_safety.sql`
 
-## PASS 4
+### PASS 6 — Invoice Creation (COMPLETE)
 
-Dashboard
+- **Invoice list:** `/invoices` with status badges, currency formatting, empty state, "New Invoice" button
+- **Invoice builder:** `/invoices/new` with customer selection, invoice details, line items (add/remove), live calculations (subtotal, discount, tax, total), notes, payment info, form validation, toast feedback
+- **Invoice detail/preview:** `/invoices/[id]` with business/customer info, line items table, totals, notes, payment info
+- **Server actions:** `getCustomersForInvoice`, `getBusinessForInvoice`, `createInvoice`, `getInvoiceById`, `getInvoices`
+- **Atomic creation:** `create_invoice_with_items` PostgreSQL RPC with `next_invoice_number` column
+- Migration: `20240101000004_invoice_builder.sql`
+- Custom `Select` component in `components/ui/select.tsx` (Radix-based, fixes dark-mode dropdown readability)
 
-- statistics
-- recent invoices
-- statuses
-- quick actions
-- empty states
+### PASS 7 — Invoice Lifecycle + Management (NEXT)
 
-## PASS 5
+- Invoice list enhancements: search, filter by status, sort
+- Invoice status transitions: Draft → Sent → Paid / Overdue / Cancelled
+- Invoice editing (modify customer, dates, line items, notes, payment info, status)
+- Invoice deletion (with confirmation)
+- Settings route (`/settings`) — business profile editing page
 
-Invoice management
+### PASS 8 — PDF + Sharing + Payments
 
-- invoice list
-- search
-- filters
-- responsive invoice cards
-- invoice actions
+- Professional invoice PDF generation
+- PDF download
+- Print-friendly layout
+- (Future) Sharing via email link
+- (Future) Payment integration
 
-## PASS 6
+### PASS 9 — Reminders + Automation + AI
 
-Invoice builder
+- Payment reminders / follow-up assistance
+- Invoice memory (frequently used services)
+- Customer intelligence (total invoiced, paid, outstanding per customer)
+- AI Quick Invoice (natural language → structured line items)
 
-- customer selection
-- invoice details
-- line items
-- calculations
-- tax
-- discount
-- notes
-- payment information
-- preview
+### PASS 10 — Production Hardening + MVP Launch
 
-## PASS 7
-
-Customers and settings
-
-- customers
-- customer details
-- business profile
-- branding
-- logo upload
-- invoice numbering
-- templates
-- settings
-
-## PASS 8
-
-PDF
-
-- professional invoice document
-- PDF generation
-- download
-- print-friendly layout
-
-## PASS 9
-
-Database integration
-
-- real Supabase data
-- RLS
-- customer persistence
-- invoice persistence
-- invoice items
-- business settings
-
-## PASS 10
-
-Product polish
-
-- loading states
-- errors
-- empty states
-- responsive audit
-- accessibility audit
-- performance
-- security review
+- Loading states audit
+- Error handling audit
+- Empty states audit
+- Responsive audit
+- Accessibility audit
+- Performance audit
+- Security review
+- MVP validation and launch
 
 ---
 
