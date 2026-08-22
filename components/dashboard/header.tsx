@@ -7,9 +7,10 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 
 interface HeaderProps {
   onMenuClick?: () => void;
+  title?: string;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
+export function Header({ onMenuClick, title = "Dashboard" }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
       <div className="flex items-center gap-4">
@@ -23,7 +24,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <span className="sr-only">Toggle menu</span>
         </Button>
 
-        <span className="text-lg font-semibold">Dashboard</span>
+        <span className="text-lg font-semibold">{title}</span>
       </div>
 
       <div className="flex items-center gap-2">

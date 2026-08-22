@@ -1,7 +1,7 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { Suspense } from "react";
+import { createClient } from "@/lib/supabase/server";
+import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 async function UserCheck() {
   const supabase = await createClient();
@@ -15,7 +15,7 @@ async function UserCheck() {
   return null;
 }
 
-export default function DashboardLayout({
+export default function InvoicesLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -29,7 +29,7 @@ export default function DashboardLayout({
       }
     >
       <UserCheck />
-      <DashboardShell title="Dashboard">{children}</DashboardShell>
+      <DashboardShell title="Invoices">{children}</DashboardShell>
     </Suspense>
   );
 }

@@ -107,7 +107,7 @@ export function GettingStarted({ setupStatus, loading }: GettingStartedProps) {
           complete={setupStatus.hasInvoices}
           label="Create your first invoice"
           description="Send professional invoices in seconds"
-          href="/invoices"
+          href="/invoices/new"
           icon={FileText}
         />
       </CardContent>

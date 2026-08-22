@@ -67,11 +67,15 @@ export async function createBusiness(formData: FormData) {
     phone: (formData.get("phone") as string) || null,
     address: (formData.get("address") as string) || null,
     country: (formData.get("country") as string) || null,
-    currency: (formData.get("currency") as string) || "NGN",
+    currency: formData.get("currency") as string,
     logo_url: logoPath,
     brand_colour: (formData.get("brand_colour") as string) || "#4F46E5",
     invoice_prefix: (formData.get("invoice_prefix") as string) || "INV",
     invoice_start_number: parseInt(
+      (formData.get("invoice_start_number") as string) || "1",
+      10,
+    ),
+    next_invoice_number: parseInt(
       (formData.get("invoice_start_number") as string) || "1",
       10,
     ),

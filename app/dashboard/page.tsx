@@ -183,8 +183,8 @@ function QuickActions() {
       <div>
         <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
         <div className="space-y-3">
-          <Link
-            href="/invoices"
+            <Link
+              href="/invoices/new"
             className="flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-accent/50"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10">

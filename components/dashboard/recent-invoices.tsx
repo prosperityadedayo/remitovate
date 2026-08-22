@@ -95,7 +95,7 @@ export function RecentInvoices({ invoices, currency, loading }: RecentInvoicesPr
               No invoices yet. Create your first invoice to start tracking payments.
             </p>
             <Button asChild className="mt-4" size="sm">
-              <Link href="/invoices">
+              <Link href="/invoices/new">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Invoice
               </Link>
