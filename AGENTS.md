@@ -543,13 +543,18 @@ Do not implement future passes unless explicitly instructed.
 - Migration: `20240101000004_invoice_builder.sql`
 - Custom `Select` component in `components/ui/select.tsx` (Radix-based, fixes dark-mode dropdown readability)
 
-### PASS 7 — Invoice Lifecycle + Management (NEXT)
+### PASS 7 — Invoice Lifecycle + Management (COMPLETE)
 
-- Invoice list enhancements: search, filter by status, sort
-- Invoice status transitions: Draft → Sent → Paid / Overdue / Cancelled
-- Invoice editing (modify customer, dates, line items, notes, payment info, status)
-- Invoice deletion (with confirmation)
-- Settings route (`/settings`) — business profile editing page
+- **Invoice list enhancements:** `/invoices` now supports debounced search (URL-synced), status filter dropdown, and sort dropdown
+- **Invoice status management:** Status transitions enforced via `TRANSITION_MAP` (Draft → Sent, Draft → Cancelled, Sent → Paid, Sent → Cancelled, Paid → Cancelled, Cancelled → Reopen as Draft)
+- **Overdue as effective status:** "Overdue" is computed dynamically when `status = 'sent'` and `due_date < today` (via `getEffectiveStatus`). Not stored. Dashboard stats RPC updated accordingly.
+- **Invoice editing:** `/invoices/[id]/edit` pre-fills all fields (customer, dates, line items, notes, payment info) from server data; saves atomically via `update_invoice_with_items` RPC
+- **Invoice deletion:** `/invoices/[id]` page header has two-step delete confirmation button; deletes invoices scoped to business_id (items cascade-delete)
+- **Settings route:** `/settings` with business profile form (name, email, phone, address, country, currency, logo, brand colour, invoice prefix, payment terms, template)
+- **Components:** `InvoiceStatusBadge`, `InvoiceStatusActions`, `InvoiceDeleteButton`, `BusinessForm` (settings)
+- **Server actions:** `updateInvoice`, `updateInvoiceStatus`, `deleteInvoice`, `updateBusiness`
+- **Migration:** `20240101000005_invoice_lifecycle.sql` — updates `get_dashboard_stats` RPC (dynamic overdue), adds `update_invoice_with_items` RPC
+- **Guard:** Paid and cancelled invoices are not editable (Edit button hidden, edit page redirects to detail)
 
 ### PASS 8 — PDF + Sharing + Payments
 
