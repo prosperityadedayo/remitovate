@@ -50,14 +50,14 @@ export function MobileSidebar({
     <>
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className="no-print fixed inset-0 z-40 bg-black/50 lg:hidden"
           onClick={onClose}
           aria-hidden="true"
         />
       )}
       <aside
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 transform border-r border-border bg-card transition-transform duration-200 lg:hidden",
+          "no-print fixed top-0 left-0 z-50 h-full w-64 transform border-r border-border bg-card transition-transform duration-200 lg:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
         role="dialog"

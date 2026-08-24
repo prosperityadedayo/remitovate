@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePreview } from "@/components/invoices/invoice-preview";
 import { getInvoiceById } from "@/app/actions/invoices";
+import { getSignedLogoUrl } from "@/app/actions/upload";
 
 function InvoicePreviewSkeleton() {
   return (
@@ -66,7 +67,11 @@ async function InvoicePreviewContent({
     notFound();
   }
 
-  return <InvoicePreview invoice={invoice} />;
+  const logoUrl = invoice.businesses.logo_url
+    ? await getSignedLogoUrl(invoice.businesses.logo_url)
+    : null;
+
+  return <InvoicePreview invoice={invoice} logoUrl={logoUrl} />;
 }
 
 export default async function InvoiceDetailPage({

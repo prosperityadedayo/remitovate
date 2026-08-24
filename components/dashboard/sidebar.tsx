@@ -21,7 +21,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden lg:flex w-64 flex-col border-r border-border bg-card">
+    <aside className="no-print hidden lg:flex w-64 flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center border-b border-border px-6">
         <Link href="/dashboard" className="flex items-center font-semibold">
           <span className="text-xl font-bold text-primary">Remitovate</span>
