@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { DashboardStats, RecentInvoice, BusinessSetupStatus } from "@/types";
+import { getEffectiveStatus } from "@/lib/invoice-utils";
 
 function getSupabase() {
   return createClient();
@@ -103,7 +104,7 @@ export async function getRecentInvoices(): Promise<RecentInvoice[]> {
       id: invoice.id,
       invoice_number: invoice.invoice_number,
       customer_name: (invoice as { customers?: { name?: string } }).customers?.name || "Unknown",
-      status: invoice.status,
+      status: getEffectiveStatus(invoice.status, invoice.due_date),
       total: Number(invoice.total) || 0,
       due_date: invoice.due_date,
       invoice_date: invoice.invoice_date,

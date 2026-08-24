@@ -1,67 +1,127 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Plus,
+  FileText,
+  Search,
+  Filter,
+  SortAsc,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { RecentInvoice } from "@/types";
+import { InvoiceStatusBadge } from "./invoice-status-badge";
+import { formatCurrency, formatDateShort } from "@/lib/invoice-utils";
 
-function formatCurrency(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  }
-}
+const STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  { value: "draft", label: "Draft" },
+  { value: "sent", label: "Sent" },
+  { value: "paid", label: "Paid" },
+  { value: "overdue", label: "Overdue" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
-function formatDate(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleDateString();
-  } catch {
-    return dateStr;
-  }
-}
-
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "paid":
-      return "default";
-    case "sent":
-      return "secondary";
-    case "overdue":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
-
-function getStatusIcon(status: string) {
-  switch (status) {
-    case "paid":
-      return <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />;
-    case "sent":
-      return <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />;
-    case "overdue":
-      return <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />;
-    default:
-      return <Clock className="h-4 w-4 text-muted-foreground" />;
-  }
-}
+const SORT_OPTIONS: { value: string; label: string; field: string; order: "asc" | "desc" }[] = [
+  { value: "created_desc", label: "Newest First", field: "created_at", order: "desc" },
+  { value: "created_asc", label: "Oldest First", field: "created_at", order: "asc" },
+  { value: "due_asc", label: "Due Date (Earliest)", field: "due_date", order: "asc" },
+  { value: "due_desc", label: "Due Date (Latest)", field: "due_date", order: "desc" },
+  { value: "total_desc", label: "Total (Highest)", field: "total", order: "desc" },
+  { value: "total_asc", label: "Total (Lowest)", field: "total", order: "asc" },
+];
 
 interface InvoiceListProps {
   invoices: RecentInvoice[];
+  currency: string;
+  searchQuery: string;
+  statusFilter: string;
+  sortValue: string;
 }
 
-export function InvoiceList({ invoices }: InvoiceListProps) {
+export function InvoiceList({
+  invoices,
+  currency,
+  searchQuery,
+  statusFilter,
+  sortValue,
+}: InvoiceListProps) {
+  const router = useRouter();
+  const [localQuery, setLocalQuery] = useState(searchQuery);
+
+  useEffect(() => {
+    setLocalQuery(searchQuery);
+  }, [searchQuery]);
+
+  const updateURL = useCallback(
+    (q: string, status: string, sort: string) => {
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (status && status !== "all") params.set("status", status);
+      if (sort && sort !== "created_desc") {
+        const sortOpt = SORT_OPTIONS.find((s) => s.value === sort);
+        if (sortOpt) {
+          params.set("sort", sortOpt.field);
+          params.set("order", sortOpt.order);
+        }
+      }
+      const query = params.toString();
+      router.push(`/invoices${query ? `?${query}` : ""}`);
+    },
+    [router],
+  );
+
+  const debouncedSearch = useCallback(
+    (value: string) => {
+      const timer = setTimeout(() => {
+        updateURL(value, statusFilter, sortValue);
+      }, 300);
+      return () => clearTimeout(timer);
+    },
+    [statusFilter, sortValue, updateURL],
+  );
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalQuery(value);
+    debouncedSearch(value);
+  };
+
+  const handleStatusFilter = (status: string) => {
+    setLocalQuery(searchQuery);
+    updateURL(searchQuery, status, sortValue);
+  };
+
+  const handleSort = (sort: string) => {
+    updateURL(searchQuery, statusFilter, sort);
+  };
+
+  const clearFilters = () => {
+    setLocalQuery("");
+    router.push("/invoices");
+  };
+
+  const hasActiveFilters =
+    (localQuery && localQuery.trim()) ||
+    (statusFilter && statusFilter !== "all");
+
+  const getStatusLabel = (value: string) =>
+    STATUS_FILTERS.find((s) => s.value === value)?.label || "All Statuses";
+
+  const getSortLabel = (value: string) =>
+    SORT_OPTIONS.find((s) => s.value === value)?.label || "Newest First";
+
   if (invoices.length === 0) {
     return (
       <div className="space-y-6">
@@ -80,6 +140,55 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
               New Invoice
             </Link>
           </Button>
+        </div>
+
+        <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              name="q"
+              value={localQuery}
+              onChange={handleSearchChange}
+              placeholder="Search by invoice number or customer name..."
+              className="pl-9"
+            />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {getStatusLabel(statusFilter)}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {STATUS_FILTERS.map((filter) => (
+                <DropdownMenuItem
+                  key={filter.value}
+                  onClick={() => handleStatusFilter(filter.value)}
+                >
+                  {filter.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <SortAsc className="h-4 w-4" />
+                {getSortLabel(sortValue)}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {SORT_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => handleSort(opt.value)}
+                >
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Card>
@@ -112,6 +221,12 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
           </h1>
           <p className="mt-1 text-muted-foreground">
             {invoices.length} {invoices.length === 1 ? "invoice" : "invoices"} total
+            {statusFilter && statusFilter !== "all" && (
+              <span> · Filtered by {getStatusLabel(statusFilter)}</span>
+            )}
+            {localQuery && localQuery.trim() && (
+              <span> · Matching &quot;{localQuery}&quot;</span>
+            )}
           </p>
         </div>
         <Button asChild>
@@ -120,6 +235,78 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
             New Invoice
           </Link>
         </Button>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            name="q"
+            value={localQuery}
+            onChange={handleSearchChange}
+            placeholder="Search by invoice number or customer name..."
+            className="pl-9"
+          />
+          {localQuery && localQuery.trim() && (
+            <button
+              type="button"
+              onClick={() => {
+                setLocalQuery("");
+                updateURL("", statusFilter, sortValue);
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              {getStatusLabel(statusFilter)}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {STATUS_FILTERS.map((filter) => (
+              <DropdownMenuItem
+                key={filter.value}
+                onClick={() => handleStatusFilter(filter.value)}
+              >
+                {filter.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2">
+              <SortAsc className="h-4 w-4" />
+              {getSortLabel(sortValue)}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {SORT_OPTIONS.map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => handleSort(opt.value)}
+              >
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Clear All
+          </Button>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -139,6 +326,7 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
                     <p className="font-medium group-hover:underline">
                       {invoice.invoice_number}
                     </p>
+                    <InvoiceStatusBadge status={invoice.status} dueDate={invoice.due_date} />
                   </div>
                   <p className="text-sm text-muted-foreground truncate">
                     {invoice.customer_name}
@@ -148,16 +336,12 @@ export function InvoiceList({ invoices }: InvoiceListProps) {
               <div className="flex items-center justify-between gap-4 sm:justify-end">
                 <div className="text-right">
                   <p className="font-medium">
-                    {formatCurrency(invoice.total, "NGN")}
+                    {formatCurrency(invoice.total, currency, 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Due {formatDate(invoice.due_date)}
+                    Due {formatDateShort(invoice.due_date)}
                   </p>
                 </div>
-                <Badge variant={getStatusVariant(invoice.status)}>
-                  {getStatusIcon(invoice.status)}
-                  <span className="ml-1">{invoice.status}</span>
-                </Badge>
               </div>
             </div>
           </Link>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,14 @@ const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 export function LogoUpload({ onChange, value }: LogoUploadProps) {
   const [preview, setPreview] = useState<string | null>(value || null);
   const [error, setError] = useState<string | null>(null);
+  const [hasCustomFile, setHasCustomFile] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value && !hasCustomFile) {
+      setPreview(value);
+    }
+  }, [value, hasCustomFile]);
 
   const cropToSquare = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -64,6 +71,7 @@ export function LogoUpload({ onChange, value }: LogoUploadProps) {
     if (!file) {
       setPreview(null);
       onChange(null);
+      setHasCustomFile(false);
       return;
     }
 
@@ -81,6 +89,7 @@ export function LogoUpload({ onChange, value }: LogoUploadProps) {
       };
       reader.readAsDataURL(croppedFile);
       onChange(croppedFile);
+      setHasCustomFile(true);
     } catch {
       setError("Failed to process image. Please try another file.");
       onChange(null);

@@ -39,12 +39,14 @@ export interface Customer {
   updated_at: string;
 }
 
+export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue" | "cancelled";
+
 export interface Invoice {
   id: string;
   business_id: string;
   customer_id: string;
   invoice_number: string;
-  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
+  status: InvoiceStatus;
   invoice_date: string;
   due_date: string;
   subtotal: number;
@@ -107,8 +109,19 @@ export interface RecentInvoice {
   id: string;
   invoice_number: string;
   customer_name: string;
-  status: string;
+  status: InvoiceStatus;
   total: number;
   due_date: string;
   invoice_date: string;
 }
+
+export interface CreateInvoiceInput {
+  customerId: string;
+  invoiceDate: string;
+  dueDate: string;
+  notes?: string;
+  paymentInformation?: string;
+  items: InvoiceLineItemInput[];
+}
+
+export type UpdateInvoiceInput = CreateInvoiceInput;

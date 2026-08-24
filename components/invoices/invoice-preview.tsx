@@ -1,78 +1,55 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { InvoiceWithItems } from "@/types";
-import { Building2, User, Calendar, FileText, ArrowLeft, Plus } from "lucide-react";
+import { Building2, User, Calendar, FileText, ArrowLeft, Edit } from "lucide-react";
+import { formatCurrency, formatDate, getEffectiveStatus } from "@/lib/invoice-utils";
+import { InvoiceStatusActions } from "./invoice-status-actions";
+import { InvoiceDeleteButton } from "./invoice-delete-button";
+import { InvoiceStatusBadge } from "./invoice-status-badge";
 
 interface InvoicePreviewProps {
   invoice: InvoiceWithItems;
 }
 
-function formatCurrency(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
-}
-
-function formatDate(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
-}
-
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "paid":
-      return "default";
-    case "sent":
-      return "secondary";
-    case "overdue":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
-
 export function InvoicePreview({ invoice }: InvoicePreviewProps) {
   const currency = invoice.businesses.currency || "NGN";
+  const effectiveStatus = getEffectiveStatus(invoice.status, invoice.due_date);
+  const isEditable = effectiveStatus !== "paid" && effectiveStatus !== "cancelled";
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 md:py-12">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/dashboard">
+            <Link href="/invoices">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              Invoices
             </Link>
           </Button>
         </div>
-        <Button asChild>
-          <Link href="/invoices/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Invoice
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isEditable && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+          )}
+          <InvoiceStatusActions
+            invoiceId={invoice.id}
+            status={invoice.status}
+            dueDate={invoice.due_date}
+          />
+          <InvoiceDeleteButton
+            invoiceId={invoice.id}
+            invoiceNumber={invoice.invoice_number}
+          />
+        </div>
       </div>
 
       <Card>
@@ -101,9 +78,13 @@ export function InvoicePreview({ invoice }: InvoicePreviewProps) {
               <div className="text-lg font-semibold">
                 Invoice #{invoice.invoice_number}
               </div>
-              <Badge variant={getStatusVariant(invoice.status)} className="mt-2">
-                {invoice.status}
-              </Badge>
+              <div className="mt-2">
+                <InvoiceStatusBadge
+                  status={invoice.status}
+                  dueDate={invoice.due_date}
+                  showIcon={true}
+                />
+              </div>
             </div>
           </div>
         </CardHeader>

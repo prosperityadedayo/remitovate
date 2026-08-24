@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 async function UserCheck() {
@@ -25,7 +25,7 @@ async function UserCheck() {
   return null;
 }
 
-export default function InvoicesLayout({
+export default function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -39,7 +39,7 @@ export default function InvoicesLayout({
       }
     >
       <UserCheck />
-      <DashboardShell title="Invoices">{children}</DashboardShell>
+      <DashboardShell title="Settings">{children}</DashboardShell>
     </Suspense>
   );
 }

@@ -7,48 +7,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, FileText } from "lucide-react";
 import Link from "next/link";
 import { RecentInvoice } from "@/types";
+import {
+  formatCurrency,
+  formatDateShort,
+  getStatusVariant,
+} from "@/lib/invoice-utils";
 
 interface RecentInvoicesProps {
   invoices: RecentInvoice[];
   currency: string;
   loading?: boolean;
-}
-
-function formatCurrency(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      maximumFractionDigits: 0,
-    }).format(amount);
-  }
-}
-
-function formatDate(dateStr: string) {
-  try {
-    return new Date(dateStr).toLocaleDateString();
-  } catch {
-    return dateStr;
-  }
-}
-
-function getStatusVariant(status: string) {
-  switch (status) {
-    case "paid":
-      return "default";
-    case "sent":
-      return "secondary";
-    case "overdue":
-      return "destructive";
-    default:
-      return "outline";
-  }
 }
 
 export function RecentInvoices({ invoices, currency, loading }: RecentInvoicesProps) {
@@ -123,7 +91,12 @@ export function RecentInvoices({ invoices, currency, loading }: RecentInvoicesPr
                   <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="font-medium truncate">{invoice.invoice_number}</p>
+                  <Link
+                    href={`/invoices/${invoice.id}`}
+                    className="font-medium hover:underline"
+                  >
+                    {invoice.invoice_number}
+                  </Link>
                   <p className="text-sm text-muted-foreground truncate">
                     {invoice.customer_name}
                   </p>
@@ -132,13 +105,13 @@ export function RecentInvoices({ invoices, currency, loading }: RecentInvoicesPr
               <div className="flex items-center justify-between gap-4 sm:justify-end">
                 <div className="text-right">
                   <p className="font-medium">
-                    {formatCurrency(invoice.total, currency)}
+                    {formatCurrency(invoice.total, currency, 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Due {formatDate(invoice.due_date)}
+                    Due {formatDateShort(invoice.due_date)}
                   </p>
                 </div>
-                <Badge variant={getStatusVariant(invoice.status)}>
+                <Badge variant={getStatusVariant(invoice.status)} className="capitalize">
                   {invoice.status}
                 </Badge>
               </div>

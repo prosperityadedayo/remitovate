@@ -11,13 +11,17 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { Customer, Business } from "@/types";
-import { createInvoice } from "@/app/actions/invoices";
+import { Customer, Business, InvoiceWithItems, InvoiceLineItemInput } from "@/types";
+import { createInvoice, updateInvoice } from "@/app/actions/invoices";
 import { Users, Plus, Trash2, ArrowLeft } from "lucide-react";
+import { formatCurrency } from "@/lib/invoice-utils";
 
 interface InvoiceBuilderProps {
   customers: Customer[];
   business: Business;
+  mode?: "create" | "edit";
+  invoice?: InvoiceWithItems;
+  invoiceId?: string;
 }
 
 const DISCOUNT_TYPES: { value: string; label: string }[] = [
@@ -25,21 +29,15 @@ const DISCOUNT_TYPES: { value: string; label: string }[] = [
   { value: "percentage", label: "%" },
 ];
 
-function formatCurrency(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: "NGN",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  }
-}
+type LineItem = {
+  id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  discount_type: "percentage" | "fixed";
+  tax_rate: number;
+};
 
 function getDefaultDueDate(paymentTerms: string): string {
   const match = paymentTerms.match(/\d+/);
@@ -49,35 +47,69 @@ function getDefaultDueDate(paymentTerms: string): string {
   return date.toISOString().split("T")[0];
 }
 
-export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
+export function InvoiceBuilder({
+  customers,
+  business,
+  mode = "create",
+  invoice,
+  invoiceId,
+}: InvoiceBuilderProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const uniqueId = useId();
   const today = new Date().toISOString().split("T")[0];
   const defaultDueDate = getDefaultDueDate(business.default_payment_terms);
 
-  const uniqueId = useId();
+  const isEditMode = mode === "edit" && !!invoice;
 
-  const [customerId, setCustomerId] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState(today);
-  const [dueDate, setDueDate] = useState(defaultDueDate);
-  const [notes, setNotes] = useState("");
-  const [paymentInformation, setPaymentInformation] = useState("");
-  const [items, setItems] = useState([
-    {
-      id: `${uniqueId}-0`,
-      description: "",
-      quantity: 1,
-      unit_price: 0,
-      discount_amount: 0,
-      discount_type: "fixed" as "percentage" | "fixed",
-      tax_rate: 0,
-    },
-  ]);
+  const [customerId, setCustomerId] = useState(
+    isEditMode && invoice ? invoice.customer_id : "",
+  );
+  const [invoiceDate, setInvoiceDate] = useState(
+    isEditMode && invoice
+      ? new Date(invoice.invoice_date).toISOString().split("T")[0]
+      : today,
+  );
+  const [dueDate, setDueDate] = useState(
+    isEditMode && invoice
+      ? new Date(invoice.due_date).toISOString().split("T")[0]
+      : defaultDueDate,
+  );
+  const [notes, setNotes] = useState(
+    isEditMode && invoice ? (invoice.notes ?? "") : "",
+  );
+  const [paymentInformation, setPaymentInformation] = useState(
+    isEditMode && invoice ? (invoice.payment_information ?? "") : "",
+  );
+  const [items, setItems] = useState<LineItem[]>(() => {
+    if (isEditMode && invoice) {
+      return invoice.items.map((item) => ({
+        id: item.id,
+        description: item.description,
+        quantity: Number(item.quantity),
+        unit_price: Number(item.unit_price),
+        discount_amount: Number(item.discount_amount),
+        discount_type: item.discount_type as "percentage" | "fixed",
+        tax_rate: Number(item.tax_rate),
+      }));
+    }
+    return [
+      {
+        id: `${uniqueId}-0`,
+        description: "",
+        quantity: 1,
+        unit_price: 0,
+        discount_amount: 0,
+        discount_type: "fixed" as const,
+        tax_rate: 0,
+      },
+    ];
+  });
 
-  const calculateItem = (item: typeof items[0]) => {
+  const calculateItem = (item: LineItem) => {
     const subtotal = item.quantity * item.unit_price;
     const discount =
       item.discount_type === "percentage"
@@ -106,7 +138,7 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
 
   const totals = calculateTotals();
 
-  const updateItem = (id: string, updates: Partial<typeof items[0]>) => {
+  const updateItem = (id: string, updates: Partial<LineItem>) => {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
     );
@@ -148,20 +180,57 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
       return;
     }
 
-    const result = await createInvoice({
+    const itemsData: InvoiceLineItemInput[] = items.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount_amount: item.discount_amount,
+      discount_type: item.discount_type,
+      tax_rate: item.tax_rate,
+    }));
+
+    let result;
+
+    if (isEditMode && invoiceId) {
+      result = await updateInvoice(invoiceId, {
+        customerId,
+        invoiceDate,
+        dueDate,
+        notes: notes || undefined,
+        paymentInformation: paymentInformation || undefined,
+        items: itemsData,
+      });
+
+      if (result && "error" in result) {
+        setError(result.error);
+        toast({
+          variant: "destructive",
+          title: "Invoice not saved",
+          description: result.error,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      toast({
+        variant: "success",
+        title: "Invoice updated",
+        description: "Your invoice has been updated.",
+      });
+
+      setIsLoading(false);
+      await router.push(`/invoices/${invoiceId}`);
+      router.refresh();
+      return;
+    }
+
+    result = await createInvoice({
       customerId,
       invoiceDate,
       dueDate,
       notes: notes || undefined,
       paymentInformation: paymentInformation || undefined,
-      items: items.map((item) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        discount_amount: item.discount_amount,
-        discount_type: item.discount_type,
-        tax_rate: item.tax_rate,
-      })),
+      items: itemsData,
     });
 
     if (result && "error" in result) {
@@ -178,31 +247,34 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
     toast({
       variant: "success",
       title: "Invoice saved",
-      description: `Invoice created successfully.`,
+      description: "Invoice created successfully.",
     });
 
-    setTimeout(() => {
-      router.push(`/invoices/${result.invoiceId}`);
-      router.refresh();
-    }, 400);
+    setIsLoading(false);
+    await router.push(`/invoices/${result.invoiceId}`);
+    router.refresh();
   };
+
+  const backHref = isEditMode && invoice ? `/invoices/${invoice.id}` : "/dashboard";
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 py-8 md:py-12">
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/dashboard">
+            <Link href={backHref}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Link>
           </Button>
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
-          New Invoice
+          {isEditMode ? "Edit Invoice" : "New Invoice"}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Create a new invoice for your customer.
+          {isEditMode
+            ? "Update your invoice details and line items."
+            : "Create a new invoice for your customer."}
         </p>
       </div>
 
@@ -413,16 +485,16 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
                               }
                               className="flex-1"
                             />
-                             <Select
-                               value={item.discount_type}
-                               onValueChange={(val) =>
-                                 updateItem(item.id, {
-                                   discount_type: val as "percentage" | "fixed",
-                                 })
-                               }
-                               className="w-20"
-                               options={DISCOUNT_TYPES}
-                             />
+                            <Select
+                              value={item.discount_type}
+                              onValueChange={(val) =>
+                                updateItem(item.id, {
+                                  discount_type: val as "percentage" | "fixed",
+                                })
+                              }
+                              className="w-20"
+                              options={DISCOUNT_TYPES}
+                            />
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -445,10 +517,7 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
 
                       <div className="text-right text-sm font-medium text-foreground">
                         Line Total:{" "}
-                        {formatCurrency(
-                          calculateItem(item).total,
-                          business.currency,
-                        )}
+                        {formatCurrency(calculateItem(item).total, business.currency)}
                       </div>
                     </div>
                   ))}
@@ -501,13 +570,13 @@ export function InvoiceBuilder({ customers, business }: InvoiceBuilderProps) {
 
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <Button asChild variant="outline" type="button">
-                <Link href="/dashboard">
+                <Link href={backHref}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Cancel
                 </Link>
               </Button>
               <Button type="submit" disabled={isLoading} className="flex-1 sm:flex-none">
-                {isLoading ? "Saving..." : "Save Draft"}
+                {isLoading ? "Saving..." : isEditMode ? "Update Invoice" : "Save Draft"}
               </Button>
             </div>
           </>
