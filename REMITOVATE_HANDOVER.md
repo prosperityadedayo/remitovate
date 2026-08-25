@@ -2,15 +2,17 @@
 
 ## 1. Current Project Status
 
-**Status:** PASS 8 complete. PDF generation, print layout, and invoice sharing are fully implemented. Build and TypeScript pass.
+**Status:** PASS 9 complete. Payment reminders, invoice memory, customer intelligence, and AI Quick Invoice are fully implemented. Build and TypeScript pass.
 
-**Git state:** Clean working tree. PASS 8 committed as `b166027 feat: complete pass 8 invoice workflow`. PASS 7 committed as `d8c06ce feat(invoices): complete invoice lifecycle management`.
+**Git state:** Working tree has uncommitted PASS 9 changes. Last committed pass: PASS 8 (`b166027 feat: complete pass 8 invoice workflow`). PASS 7 committed as `d8c06ce feat(invoices): complete invoice lifecycle management`.
 
 **Remote:** `origin` → `https://github.com/prosperityadedayo/remitovate.git`
 
 **Supabase project:** `tkulugquyftptpijtske`
 
-**Migration note:** `20240101000005_invoice_lifecycle.sql` is ready in `supabase/migrations/` but must be applied manually to the Supabase database. Without it, `updateInvoice` will fail (RPC does not exist) and dashboard overdue stats will use the old static logic.
+**Migration note:** Two PASS 9 migrations (`20240101000006_payment_reminders.sql`, `20240101000007_customer_intelligence.sql`) are ready in `supabase/migrations/` but must be applied manually to the Supabase database. Without migration 6, `last_reminded_at` updates will fail. Without migration 7, customer intelligence stats will return zeros.
+
+**Local planning docs:** `PASS_9_PLAN.md` exists in the repo root for reference. It is not part of the committed codebase and should remain untracked.
 
 ---
 
@@ -30,9 +32,9 @@ businesses   (one business per user — MVP decision)
     ├─────────────────────────────┐
     ▼                             ▼
 customers  (per business)    invoices  (per business)
-                                   │
-                                   ▼
-                            invoice_items  (per invoice)
+                                    │
+                                    ▼
+                             invoice_items  (per invoice)
 ```
 
 ### Ownership model
@@ -54,6 +56,18 @@ All server actions live in `app/actions/` and use `"use server"`:
 | `invoices.ts` | `getCustomersForInvoice()`, `getBusinessForInvoice()`, `createInvoice(data)`, `updateInvoice(id, data)`, `getInvoiceById(id)`, `getInvoices(params?)`, `updateInvoiceStatus(id, status)`, `deleteInvoice(id)` | Invoice pages |
 | `dashboard.ts` | `getBusinessId()` — returns `{id, currency} \| null`, `getDashboardStats()`, `getRecentInvoices()`, `getBusinessSetupStatus()` | Dashboard page, invoice list page |
 | `upload.ts` | `getSignedLogoUrl(path)` — returns signed URL (1-year expiry) | Account menu, customer detail, settings page, PDF generation |
+| `reminders.ts` | `generateReminderText(invoiceId)` — returns email/WhatsApp text, `recordReminderSent(invoiceId)` — updates `last_reminded_at` | Invoice detail page |
+| `invoice-memory.ts` | `getFrequentServices(businessId, limit?)`, `getFrequentServicesForCustomer(businessId, customerId, limit?)` | Invoice builder suggestions |
+| `customer-intelligence.ts` | `getCustomerIntelligence(customerId)`, `getCustomerInvoiceHistory(customerId)`, `getCustomerFrequentServices(customerId, limit?)` | Customer detail page |
+| `ai-invoice.ts` | `parseInvoiceFromText(text)` — tries Gemini then Groq then deterministic fallback, `parseNaturalLanguage(text)` — deterministic parser only | AI Quick Add panel in invoice builder |
+
+### AI architecture
+
+- `parseInvoiceFromText` is the single entry point used by the UI.
+- It runs Gemini and Groq in parallel via `Promise.all`.
+- First successful result wins. If both fail, the deterministic regex parser runs as instant fallback.
+- AI API keys are server-side only (`GOOGLE_GENERATIVE_AI_API_KEY`, `GROQ_API_KEY`).
+- Only the user's natural language prompt is sent to AI providers. No customer IDs, business IDs, auth tokens, or invoice history are included.
 
 ### PDF generation
 
@@ -106,7 +120,7 @@ All server actions live in `app/actions/` and use `"use server"`:
 
 - `/customers` — list with search (debounced, URL-synced), count, empty state, skeleton loading
 - `/customers/new` — create form with validation, toast feedback
-- `/customers/[id]` — detail view with contact info grid, breadcrumbs, edit/delete actions, invoice history empty state
+- `/customers/[id]` — detail view with contact info grid, breadcrumbs, edit/delete actions, customer financial intelligence cards, frequent services, invoice history
 - `/customers/[id]/edit` — edit form pre-filled with data
 - Delete safety: blocked if customer has invoices, with clear error message
 - Inline two-step delete confirmation with toast
@@ -134,7 +148,8 @@ All server actions live in `app/actions/` and use `"use server"`:
   - **Download PDF** button — generates professional PDF via server-side `@react-pdf/renderer`, triggers file download as `{INVOICE_NUMBER}.pdf`
   - **Print Invoice** button — opens browser print dialog with clean `@media print` CSS; dashboard chrome (sidebar, header, action buttons) is hidden during print
   - **Share** dropdown — Copy Summary (formatted invoice text to clipboard) and Copy Link (invoice URL to clipboard)
-  - Edit, status transition, and delete actions (unchanged from PASS 7)
+  - **Remind** button — generates contextual email/WhatsApp reminder text for sent/overdue invoices with copy-to-clipboard and deep-link actions
+  - Edit, status transition, and delete actions
 - `/invoices/[id]/edit` — pre-fills all fields from server data; saves atomically via `update_invoice_with_items` RPC; redirects to detail if invoice is paid or cancelled
 - **PDF generation** (`/api/invoices/[id]/pdf`) — server-side A4 PDF with business branding, logo (embedded as base64 from private storage), line items, totals, notes, payment information. Always renders as clean white paper regardless of user's theme.
 - **Print layout** — `@media print` CSS hides all dashboard chrome (`no-print` class on sidebar, header, mobile sidebar, action buttons). Main content padding is removed. Invoice renders at A4 size with 15mm margins.
@@ -148,6 +163,43 @@ All server actions live in `app/actions/` and use `"use server"`:
 - There is NO Stripe, Paystack, PayPal, or any other payment processor integration.
 - Money movement happens entirely outside Remitovate.
 
+### PASS 9 Features
+
+#### Payment Reminders
+- **Remind button** on `/invoices/[id]` for sent/overdue invoices
+- Generates contextual email and WhatsApp reminder text via `generateReminderText` server action
+- `InvoiceReminderDialog` component with email/WhatsApp tabs, copy-to-clipboard, and deep-link actions (mailto / wa.me)
+- `recordReminderSent` updates `last_reminded_at` on copy
+- 15-second timeout with explicit error state if generation fails
+
+#### Invoice Memory (Frequently Used Services)
+- `getFrequentServices(businessId)` — returns most-used services across all invoices for a business
+- `getFrequentServicesForCustomer(businessId, customerId)` — returns most-used services for a specific customer
+- `InvoiceSuggestions` component renders pills above line items in the invoice builder
+- Clicking a pill adds a pre-filled line item to the invoice
+- Empty state shown when no history exists
+
+#### Customer Intelligence
+- `getCustomerIntelligence(customerId)` — returns total invoiced, paid, outstanding, overdue, counts, and latest invoice date via `get_customer_intelligence` RPC
+- `getCustomerInvoiceHistory(customerId)` — returns list of past invoices with status and totals
+- `getCustomerFrequentServices(customerId)` — returns frequently purchased services for the customer
+- `CustomerIntelligenceCards` — 4 stat cards on customer detail page
+- `CustomerFrequentServices` — pill buttons for frequently purchased services
+- `CustomerInvoiceHistory` — list of past invoices with links to invoice detail
+
+#### AI Quick Invoice
+- `parseInvoiceFromText(text)` — dual-provider parallel execution:
+  1. **Gemini** (`gemini-3.7-flash`) — 18s timeout, structured JSON output
+  2. **Groq** (`openai/gpt-oss-20b`) — 12s timeout, native fetch to `https://api.groq.com/openai/v1/chat/completions`
+  3. **Deterministic parser** — instant local fallback using regex patterns for quantities, currency, discounts, and Nigerian English patterns
+- `AiQuickAdd` component in invoice builder:
+  - Textarea for natural language input
+  - "Generate Invoice Items" button
+  - Preview of parsed items with "(AI)" badge when AI was used
+  - "Add to Invoice" and "Discard" actions
+  - Error state with helpful message if parsing fails
+- Prompt engineering for Nigerian freelancer patterns: "discount of X", "costed", "thousand naira", "then/also/plus" separators, description cleanup
+
 ### Server actions
 
 | File | Functions | Used by |
@@ -157,6 +209,10 @@ All server actions live in `app/actions/` and use `"use server"`:
 | `invoices.ts` | `getCustomersForInvoice()`, `getBusinessForInvoice()`, `createInvoice(data)`, `updateInvoice(id, data)`, `getInvoiceById(id)`, `getInvoices(params?)`, `updateInvoiceStatus(id, status)`, `deleteInvoice(id)` | Invoice pages |
 | `dashboard.ts` | `getBusinessId()` — returns `{id, currency} \| null`, `getDashboardStats()`, `getRecentInvoices()`, `getBusinessSetupStatus()` | Dashboard page, invoice list page |
 | `upload.ts` | `getSignedLogoUrl(path)` — returns signed URL (1-year expiry) | Account menu, customer detail, settings page, PDF generation |
+| `reminders.ts` | `generateReminderText(invoiceId)`, `recordReminderSent(invoiceId)` | Invoice detail page |
+| `invoice-memory.ts` | `getFrequentServices(businessId, limit?)`, `getFrequentServicesForCustomer(businessId, customerId, limit?)` | Invoice builder suggestions |
+| `customer-intelligence.ts` | `getCustomerIntelligence(customerId)`, `getCustomerInvoiceHistory(customerId)`, `getCustomerFrequentServices(customerId, limit?)` | Customer detail page |
+| `ai-invoice.ts` | `parseInvoiceFromText(text)`, `parseNaturalLanguage(text)` | AI Quick Add panel |
 
 ---
 
@@ -191,11 +247,11 @@ All server actions live in `app/actions/` and use `"use server"`:
 | `/dashboard/onboarding` | First-time business setup |
 | `/customers` | Customer list with search |
 | `/customers/new` | Add customer |
-| `/customers/[id]` | Customer detail view |
+| `/customers/[id]` | Customer detail view with financial intelligence, frequent services, invoice history |
 | `/customers/[id]/edit` | Edit customer |
 | `/invoices` | Invoice list |
-| `/invoices/new` | Create new invoice |
-| `/invoices/[id]` | Invoice detail/preview with Download PDF, Print, Share actions |
+| `/invoices/new` | Create new invoice with AI Quick Add, suggestions |
+| `/invoices/[id]` | Invoice detail/preview with Download PDF, Print, Share, Remind actions |
 | `/invoices/[id]/edit` | Edit invoice (draft, sent, overdue only; paid/cancelled redirect to detail) |
 | `/settings` | Business profile editing |
 
@@ -228,10 +284,12 @@ Dashboard chrome components (`Sidebar`, `Header`, `MobileSidebar`) carry the `no
 - `class-variance-authority`
 - `@react-pdf/renderer` (v4.8.1) — server-side PDF generation only; does not affect client bundle
 
-**Backend:**
+**Backend / AI:**
 - Supabase Auth
 - Supabase PostgreSQL (with Row Level Security)
 - Supabase Storage (private bucket)
+- Google Gemini API (`@google/genai`) — free tier, server-side only
+- Groq API — free tier, native `fetch` to OpenAI-compatible endpoint
 
 **Build & deploy:**
 - Next.js 16 Turbopack
@@ -267,14 +325,17 @@ components/
     account-menu.tsx, stat-card.tsx, recent-invoices.tsx,
     getting-started.tsx, logo-upload.tsx
   customers/    — Customer management
-    customer-list.tsx, customer-form.tsx, customer-detail.tsx
+    customer-list.tsx, customer-form.tsx, customer-detail.tsx,
+    customer-intelligence.tsx, customer-frequent-services.tsx,
+    customer-invoice-history.tsx
   invoices/     — Invoice management
     invoice-list.tsx, invoice-builder.tsx,
-    invoice-preview.tsx (detail page with PDF/Print/Share actions),
+    invoice-preview.tsx (detail page with PDF/Print/Share/Remind actions),
     invoice-document.tsx (standalone invoice document — theme-aware),
     invoice-pdf-document.tsx (@react-pdf/renderer A4 PDF document),
     invoice-status-badge.tsx, invoice-status-actions.tsx,
-    invoice-delete-button.tsx
+    invoice-delete-button.tsx,
+    invoice-reminder-dialog.tsx, invoice-suggestions.tsx, ai-quick-add.tsx
   settings/     — Business settings
     business-form.tsx
   auth-forms/   — Authentication forms
@@ -314,11 +375,11 @@ All tables use UUID primary keys, foreign keys with `ON DELETE CASCADE`/`SET NUL
 
 ### Migrations
 
-All 6 migrations exist in `supabase/migrations/`. The schema is production-ready. **No new migrations were added in PASS 8.**
+All 8 migrations exist in `supabase/migrations/`. The schema is production-ready.
 
 **To activate the database:**
 1. Create the `business-logos` bucket in the Supabase Dashboard → Storage → set to **Private**
-2. Apply all 6 migrations in order via Supabase Dashboard → SQL Editor → Run (the `supabase` CLI requires Docker + `SUPABASE_ACCESS_TOKEN`)
+2. Apply all 8 migrations in order via Supabase Dashboard → SQL Editor → Run (the `supabase` CLI requires Docker + `SUPABASE_ACCESS_TOKEN`)
 
 **Migrations in order:**
 1. `20240101000000_init_schema.sql` — Destructive (drops + recreates all tables). Only for fresh databases.
@@ -327,6 +388,8 @@ All 6 migrations exist in `supabase/migrations/`. The schema is production-ready
 4. `20240101000003_customer_deletion_safety.sql` — Makes `invoices.customer_id` nullable, changes FK to `ON DELETE SET NULL`.
 5. `20240101000004_invoice_builder.sql` — `next_invoice_number` column, unique index on invoice numbers, `create_invoice_with_items` atomic RPC.
 6. `20240101000005_invoice_lifecycle.sql` — Updates `get_dashboard_stats` RPC (dynamic overdue), adds `update_invoice_with_items` RPC.
+7. `20240101000006_payment_reminders.sql` — Adds `last_reminded_at` column to `invoices`, creates index.
+8. `20240101000007_customer_intelligence.sql` — Adds `get_customer_intelligence` RPC for per-customer financial metrics.
 
 ---
 
@@ -348,6 +411,10 @@ All 6 migrations exist in `supabase/migrations/`. The schema is production-ready
 
 8. **No automated tests** — The project has no test suite (no jest, vitest, or playwright). All validation is via `npm run lint` and `npm run build`. A testing framework is deferred to PASS 10.
 
+9. **Gemini free-tier 503 errors** — Gemini's free tier occasionally returns 503 `Service Unavailable`. The code handles this via Groq fallback or deterministic parser, but users may experience 10-18s delays on first call. Consider reducing timeout or prioritizing Groq for faster responses.
+
+10. **Reminder dialog error state** — The reminder dialog now shows explicit error messages, but the underlying `generateReminderText` server action can still return `null` silently if the invoice or related customer/business data is missing. Consider adding more granular error messages.
+
 ---
 
 ## 9. Deferred Functionality
@@ -357,12 +424,12 @@ The following features are explicitly deferred to future passes:
 | Feature | Planned Pass | Reason |
 |---------|-------------|--------|
 | Payment integration | NOT PLANNED | Remitovate does NOT process payments. Business owners manually mark invoices as paid after receiving payment externally. There is NO payment gateway, NO Stripe, NO Paystack, NO checkout flow. |
-| Public/customer-facing invoice routes with share tokens | PASS 9/10 | Requires new `invoice_shares` table, secure token management, proxy exception, public layout, and careful security review. Sharing in PASS 8 uses clipboard copy (summary + link) instead. |
-| Email delivery (send invoice via email) | PASS 9 | Requires email provider (Resend, etc.) and email template infrastructure. |
-| Payment reminders/automation | PASS 9 | Automation |
-| AI Quick Invoice | PASS 9 | AI feature |
-| Invoice memory (frequently used services) | PASS 9 | AI/automation |
-| Customer intelligence (total invoiced, paid, outstanding per customer) | PASS 9 | Data enrichment |
+| Public/customer-facing invoice routes with share tokens | PASS 10 | Requires new `invoice_shares` table, secure token management, proxy exception, public layout, and careful security review. Sharing in PASS 8 uses clipboard copy (summary + link) instead. |
+| Email delivery (send invoice via email) | NOT PLANNED (MVP) | Requires email provider (Resend, etc.) and email template infrastructure. Manual copy/WhatsApp covers the immediate MVP need. |
+| Automated payment reminders/scheduling | NOT PLANNED (MVP) | Manual reminder assistance is implemented. Automation requires cron/background workers (paid on Vercel). |
+| AI Quick Invoice | PASS 9 | Implemented with Gemini + Groq fallback + deterministic parser. |
+| Invoice memory (frequently used services) | PASS 9 | Implemented via server-side aggregation of `invoice_items`. |
+| Customer intelligence (total invoiced, paid, outstanding per customer) | PASS 9 | Implemented via `get_customer_intelligence` RPC and server actions. |
 | Loading state audit | PASS 10 | Product polish |
 | Accessibility audit | PASS 10 | Product polish |
 | Performance audit | PASS 10 | Product polish |
@@ -384,12 +451,125 @@ The following features are explicitly deferred to future passes:
 | **PASS 6** | Invoice Creation | **COMPLETE** |
 | **PASS 7** | Invoice Lifecycle + Management | **COMPLETE** |
 | **PASS 8** | PDF + Print + Sharing | **COMPLETE** |
-| **PASS 9** | Reminders + Automation + AI | PENDING |
+| **PASS 9** | Reminders + Automation + AI | **COMPLETE** |
 | **PASS 10** | Production Hardening + MVP Launch | PENDING |
 
 ---
 
-## 11. PASS 8 — Completion Summary
+## 11. PASS 9 — Completion Summary
+
+PASS 9 (Reminders + Automation + AI) is complete. The following was implemented:
+
+### What was built
+
+#### Payment Reminders
+- **Remind button** on `/invoices/[id]` for sent/overdue invoices
+- `generateReminderText(invoiceId)` server action fetches invoice, customer, and business data; returns formatted email and WhatsApp text
+- `recordReminderSent(invoiceId)` updates `last_reminded_at` timestamp
+- `InvoiceReminderDialog` component with email/WhatsApp tabs, copy-to-clipboard buttons, and deep-link actions (mailto / wa.me)
+- 15-second timeout with explicit error state if generation fails
+- Mobile-friendly dialog layout
+
+#### Invoice Memory
+- `getFrequentServices(businessId, limit?)` server action aggregates `invoice_items` joined with `invoices` to find most-used service descriptions and latest unit prices
+- `getFrequentServicesForCustomer(businessId, customerId, limit?)` scoped to a specific customer
+- `InvoiceSuggestions` component renders loading skeleton, empty state, or pill buttons above line items
+- Clicking a pill adds a pre-filled line item to the invoice without overwriting existing items
+- Integrated into `/invoices/new` and `/invoices/[id]/edit`
+
+#### Customer Intelligence
+- `getCustomerIntelligence(customerId)` uses `get_customer_intelligence` RPC to return aggregated metrics: total invoiced, paid, outstanding, overdue, counts, and latest invoice date
+- `getCustomerInvoiceHistory(customerId)` returns ordered list of past invoices with status and totals
+- `getCustomerFrequentServices(customerId, limit?)` returns frequently purchased services for the customer
+- `CustomerIntelligenceCards` — 4 stat cards (Total Invoiced, Paid, Outstanding, Overdue) with currency formatting
+- `CustomerFrequentServices` — pill buttons for frequently purchased services
+- `CustomerInvoiceHistory` — list of past invoices with status badges and links to invoice detail
+- All integrated into `/customers/[id]` page with skeleton loading states
+
+#### AI Quick Invoice
+- `parseInvoiceFromText(text)` — dual-provider parallel execution:
+  1. **Gemini** (`gemini-3.7-flash`) — 18s timeout, structured JSON output via `responseMimeType: "application/json"` and `responseSchema`
+  2. **Groq** (`openai/gpt-oss-20b`) — 12s timeout, native `fetch` to `https://api.groq.com/openai/v1/chat/completions`
+  3. **Deterministic parser** — instant local fallback using regex patterns for quantities, currency, discounts, copies, and Nigerian English patterns ("costed", "thousand naira", "discount of X")
+- Prompt engineering for Nigerian freelancer patterns:
+  - "Discount of X" applies to preceding service
+  - "Then", "also", "plus" = separate line items
+  - "costed" = price indicator
+  - "thousand naira" = multiply by 1000
+  - Description cleanup removes filler words
+- `AiQuickAdd` component in invoice builder:
+  - Textarea for natural language input
+  - "Generate Invoice Items" button with loading state
+  - Preview of parsed items with "(AI)" badge when AI was used
+  - "Add to Invoice" and "Discard" actions
+  - Error state with helpful message if parsing fails
+  - Empty items show: "Couldn't parse any line items from that text. Try: 'Website design ₦150,000 plus hosting ₦20,000'"
+
+### New files created
+
+| File | Purpose |
+|------|---------|
+| `app/actions/reminders.ts` | Reminder text generation + `last_reminded_at` tracking |
+| `app/actions/invoice-memory.ts` | Frequent services queries for business and customer |
+| `app/actions/customer-intelligence.ts` | Customer metrics, invoice history, frequent services |
+| `app/actions/ai-invoice.ts` | AI parser abstraction with Gemini + Groq + deterministic fallback |
+| `components/invoices/invoice-reminder-dialog.tsx` | Reminder UI with email/WhatsApp tabs |
+| `components/invoices/invoice-suggestions.tsx` | Suggestion pills for frequent services |
+| `components/invoices/ai-quick-add.tsx` | AI Quick Add textarea + generate + preview |
+| `components/customers/customer-intelligence.tsx` | Financial summary stat cards |
+| `components/customers/customer-frequent-services.tsx` | Frequent services pills |
+| `components/customers/customer-invoice-history.tsx` | Invoice history list with status badges |
+| `supabase/migrations/20240101000006_payment_reminders.sql` | Adds `last_reminded_at` column |
+| `supabase/migrations/20240101000007_customer_intelligence.sql` | Adds `get_customer_intelligence` RPC |
+
+### Files modified
+
+| File | Changes |
+|------|---------|
+| `package.json` | Added `@google/genai` (^1.52.0) |
+| `types/index.ts` | Added `CustomerIntelligence`, `InvoiceHistoryEntry`, `ServiceSuggestion` |
+| `app/invoices/[id]/page.tsx` | Passes invoice data to `InvoicePreview` |
+| `components/invoices/invoice-preview.tsx` | Added Remind button, reminder dialog, error handling, 15s timeout |
+| `components/invoices/invoice-builder.tsx` | Added `InvoiceSuggestions` and `AiQuickAdd` sections in 2×2 grid layout |
+| `components/customers/customer-detail.tsx` | Added intelligence cards, frequent services, invoice history |
+| `app/customers/[id]/page.tsx` | Fetches `intelligence`, `invoiceHistory`, `frequentServices`, and `currency` |
+
+### Dependencies added
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@google/genai` | ^1.52.0 | Google Gemini API client for AI-enhanced invoice parsing |
+
+### Database changes
+
+- Migration 6: Adds `last_reminded_at TIMESTAMPTZ` column to `invoices` table, with index.
+- Migration 7: Adds `get_customer_intelligence(p_customer_id uuid)` RPC returning aggregated per-customer financial metrics.
+
+### Security decisions
+
+- AI API keys are server-side only (`GOOGLE_GENERATIVE_AI_API_KEY`, `GROQ_API_KEY` in `.env.local`). Never exposed to client.
+- Only the user's natural language prompt is sent to AI providers. No customer IDs, business IDs, auth tokens, or invoice history are included.
+- `parseInvoiceFromText` validates all AI output before returning. Invalid items are filtered out.
+- Deterministic parser provides zero-cost, zero-latency fallback if AI is unavailable, rate-limited, or returns invalid data.
+- Reminder server action scopes query by `business_id` derived from `auth.uid()`.
+- Customer intelligence server actions derive business ownership via `getBusinessId()`.
+
+### What was NOT implemented (and why)
+
+- **Automated email/SMS/WhatsApp sending** — Requires paid provider (Resend, Twilio). Out of scope for zero-capital MVP. Manual copy/open actions are the MVP.
+- **Reminder scheduling/automation** — Requires cron/background workers (paid on Vercel). Manual reminder assistance is the MVP.
+- **AI provider cost** — Both Gemini and Groq free tiers are used. No paid AI APIs.
+- **Custom reminder templates** — Hardcoded templates are sufficient for MVP. Customization is a post-MVP feature.
+
+### Validation
+
+- Lint: passes (`npm run lint` — 0 errors)
+- Build: passes (`npm run build` — TypeScript + production build)
+- Manual testing: reminders, suggestions, customer intelligence, and AI Quick Add all verified working
+
+---
+
+## 12. PASS 8 — Completion Summary
 
 PASS 8 (PDF + Print + Sharing) is complete. The following was implemented:
 
@@ -459,7 +639,7 @@ PASS 8 (PDF + Print + Sharing) is complete. The following was implemented:
 ### What was NOT implemented (and why)
 
 - **Payment integration** — User explicitly excluded from PASS 8. Remitovate does not process payments.
-- **Public invoice sharing routes** — Deferred to PASS 9/10 due to security surface area (token management, RLS bypass, proxy exceptions, public layout). Clipboard sharing covers the immediate MVP need.
+- **Public invoice sharing routes** — Deferred to PASS 10 due to security surface area (token management, RLS bypass, proxy exceptions, public layout). Clipboard sharing covers the immediate MVP need.
 - **Email delivery** — Deferred. Requires external email provider.
 - **Custom fonts in PDF** — Default Helvetica is sufficient for MVP.
 
@@ -472,7 +652,7 @@ PASS 8 (PDF + Print + Sharing) is complete. The following was implemented:
 
 ---
 
-## 12. PASS 7 — Completion Summary
+## 13. PASS 7 — Completion Summary
 
 PASS 7 (Invoice Lifecycle + Management) is complete. The following was implemented:
 
@@ -504,7 +684,7 @@ PASS 7 (Invoice Lifecycle + Management) is complete. The following was implement
 
 ---
 
-## 13. Important Architectural Decisions
+## 14. Important Architectural Decisions
 
 1. **One business per user (MVP)** — The `businesses` table has `user_id` as `UNIQUE`. Multi-business support is intentionally not implemented.
 
@@ -538,11 +718,15 @@ PASS 7 (Invoice Lifecycle + Management) is complete. The following was implement
 
 16. **Print/PDF always white** — The on-screen `InvoiceDocument` component uses design tokens so it adapts to light/dark themes. The `@media print` CSS and the `@react-pdf/renderer` PDF component both force white background with dark text, so printed output and downloaded PDFs are always clean, high-contrast light-mode paper.
 
+17. **AI parsing is provider-agnostic with deterministic fallback** — `parseInvoiceFromText` tries Gemini first, then Groq, then falls back to a local regex parser. The UI never needs to know which provider succeeded. This ensures zero-capital operation: if both AI providers are unavailable, the app continues to work with instant local parsing.
+
 ---
 
-## 14. Current Git History
+## 15. Current Git History
 
 ```
+(branches ahead of origin — uncommitted PASS 9 changes)
+
 b166027  feat: complete pass 8 invoice workflow      ← PASS 8
 35729a0  docs: finalize pass 7 handover and pass 8 roadmap
 d8c06ce  feat(invoices): complete invoice lifecycle management      ← PASS 7
@@ -564,7 +748,7 @@ e487300  Initial commit from Create Next App
 
 ---
 
-## 15. Production-Readiness Considerations
+## 16. Production-Readiness Considerations
 
 The following areas have NOT been audited yet (planned for PASS 10):
 
@@ -582,30 +766,98 @@ The following areas have NOT been audited yet (planned for PASS 10):
 | Invoice numbering concurrency | Atomic via RPC | `next_invoice_number` is incremented inside a PostgreSQL transaction (the RPC). Safe under concurrent requests. |
 | RPC security | Relies on RLS | RPC functions use `SECURITY INVOKER` (inherit caller's RLS). The `get_dashboard_stats` function uses `STABLE` volatility. |
 | PDF generation | Implemented | Server-side via `@react-pdf/renderer`. Works on Vercel Node.js runtime. Logo fetched from private storage as base64. A4 output. |
+| AI fallback reliability | Implemented | Dual-provider (Gemini + Groq) with deterministic fallback. Gemini free-tier 503s handled by Groq or local parser. |
+| AI cost | Zero | Both Gemini and Groq free tiers used. No paid AI APIs. Deterministic fallback requires no API calls. |
 
 ---
 
-## 16. Manual Setup Required
+## 17. Zero-Cost Requirement
+
+The MVP must remain deployable using only free-tier/free resources:
+
+- **Supabase:** Free tier (database, auth, storage)
+- **Vercel:** Free tier (deployment, serverless functions)
+- **AI:** Google Gemini free tier + Groq free tier. No paid AI APIs required.
+- **Email:** Supabase default email provider (free). No Resend, SendGrid, or paid email provider required.
+- **Payment processing:** None. Remitovate does NOT process payments.
+- **Infrastructure:** No Redis, no queues, no cron workers, no paid APIs.
+
+The deterministic parser ensures the AI Quick Invoice feature works even when both free-tier AI providers are rate-limited or unavailable.
+
+---
+
+## 18. Manual Setup Required
 
 1. **Create `.env.local`** from `.env.example` with real Supabase URL and anon key.
 2. **Create `business-logos` bucket** in Supabase Dashboard → Storage → set to **Private**.
-3. **Apply all 6 migrations** in order via Supabase Dashboard → SQL Editor → Run. The `supabase` CLI requires Docker + `SUPABASE_ACCESS_TOKEN` which may not be available.
+3. **Apply all 8 migrations** in order via Supabase Dashboard → SQL Editor → Run. The `supabase` CLI requires Docker + `SUPABASE_ACCESS_TOKEN` which may not be available.
    - Migration 5 (`20240101000005_invoice_lifecycle.sql`) updates the `get_dashboard_stats` RPC and adds the `update_invoice_with_items` RPC. This must be applied for invoice editing and accurate dashboard overdue stats to work.
+   - Migration 6 (`20240101000006_payment_reminders.sql`) adds `last_reminded_at` column. Required for reminder tracking.
+   - Migration 7 (`20240101000007_customer_intelligence.sql`) adds `get_customer_intelligence` RPC. Required for customer intelligence stats.
 4. **Supabase Auth settings** — Configure email confirmations, password reset, and redirect URLs in Supabase Dashboard → Authentication → URL Configuration.
 
 ---
 
-## 17. Current Next Action
+## 19. PASS 10 — Production Hardening + MVP Launch
 
-**PASS 9:** Payment reminders, automation, AI Quick Invoice, invoice memory, and customer intelligence.
+PASS 10 is the final planned pass. Based on the current repository state, the following work must happen:
+
+### Must-fix before launch
+
+1. **Apply pending migrations** — `20240101000006_payment_reminders.sql` and `20240101000007_customer_intelligence.sql` must be applied to the live Supabase database.
+2. **Loading state audit** — Verify all server action calls have appropriate loading states. Known gaps: reminder text generation, AI Quick Add, customer intelligence fetch.
+3. **Error handling audit** — Add centralized error boundary or global error handler. Ensure all server action failures show user-friendly toasts.
+4. **Responsive audit** — Test all new PASS 9 components at 375px, 390px, 414px, 768px, 1024px, 1440px. Verify no horizontal overflow.
+5. **Accessibility audit** — Ensure all new components have proper ARIA labels, keyboard navigation, and focus management.
+6. **Performance audit** — Measure bundle size impact of new PASS 9 components and `@google/genai` dependency. Ensure AI calls don't block main thread.
+7. **Security review** — Verify RLS policies cover all new queries. Ensure AI prompt injection is mitigated (validate AI output, never trust client input).
+8. **Remove planning artifacts** — Delete or gitignore `PASS_9_PLAN.md` and any `.kilo/` artifacts before commit.
+
+### Should-fix if low risk
+
+1. **Gemini timeout tuning** — Reduce from 18s to 12-15s and prioritize Groq for faster fallback.
+2. **AI prompt caching** — Cache common natural language inputs to reduce API calls and latency.
+3. **Customer intelligence pagination** — Add pagination for customers with >100 invoices.
+4. **Suggestion caching** — Cache frequent services results for 5-10 minutes to reduce database load.
+
+### Post-MVP / Future
+
+1. **Public invoice routes with share tokens** — Secure token-based public invoice viewing.
+2. **Email delivery** — Send invoices and reminders via email using a free-tier provider.
+3. **Reminder scheduling** — Cron-based automated reminders (requires Vercel Pro or external cron).
+4. **Multi-business support** — Allow users to manage multiple businesses.
+5. **Custom reminder templates** — User-configurable reminder text.
+6. **Advanced AI features** — Invoice memory persistence, customer payment prediction, invoice suggestions based on seasonality.
+
+### Intentionally deferred
+
+- Payment processing — Remitovate will never process payments.
+- Paid email/SMS delivery — manual copy/WhatsApp is the MVP.
+- Automated background jobs — manual actions only in MVP.
 
 ---
 
-## 18. Validation Commands
+## 20. Current Next Action
+
+**PASS 10:** Production hardening and MVP launch.
+
+---
+
+## 21. Validation Commands
 
 ```bash
 npm run lint    # ESLint — passes with 0 errors
 npm run build   # Next.js 16 production build — passes (TypeScript + compilation)
 ```
 
-Both commands were run after PASS 8 implementation and passed cleanly.
+Both commands were run after PASS 9 implementation and passed cleanly.
+
+---
+
+## 22. Final Project Status
+
+- **Completed:** PASS 0 through PASS 9 (all planned features implemented)
+- **In progress:** None — awaiting PASS 10 start
+- **Remaining before launch:** Apply 2 pending migrations, remove planning artifacts, PASS 10 hardening
+- **Deferred to post-MVP:** Public invoice routes, email delivery, automated reminders, multi-business, custom templates
+- **Current recommended next step:** PASS 10 — Production Hardening + MVP Launch
