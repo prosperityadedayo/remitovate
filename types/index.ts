@@ -125,3 +125,31 @@ export interface CreateInvoiceInput {
 }
 
 export type UpdateInvoiceInput = CreateInvoiceInput;
+
+export interface CustomerIntelligence {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalOutstanding: number;
+  totalOverdue: number;
+  invoiceCount: number;
+  paidCount: number;
+  outstandingCount: number;
+  overdueCount: number;
+  latestInvoiceDate: string | null;
+  currency: string;
+}
+
+export interface InvoiceHistoryEntry {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  status: string;
+  total: number;
+}
+
+export interface ServiceSuggestion {
+  description: string;
+  latestUnitPrice: number;
+  usageCount: number;
+}

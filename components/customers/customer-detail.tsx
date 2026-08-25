@@ -3,19 +3,32 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Customer } from "@/types";
-import { Pencil, Trash2, Mail, Phone, MapPin, FileText, Calendar } from "lucide-react";
+import { Customer, CustomerIntelligence, InvoiceHistoryEntry, ServiceSuggestion } from "@/types";
+import { Pencil, Trash2, Mail, Phone, MapPin, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteCustomer } from "@/app/actions/customers";
 import { useToast } from "@/components/ui/toast";
+import { CustomerIntelligenceCards } from "./customer-intelligence";
+import { CustomerFrequentServices } from "./customer-frequent-services";
+import { CustomerInvoiceHistory } from "./customer-invoice-history";
 
 interface CustomerDetailProps {
   customer: Customer;
+  intelligence: CustomerIntelligence | null;
+  invoiceHistory: InvoiceHistoryEntry[];
+  frequentServices: ServiceSuggestion[];
+  currency: string;
 }
 
-export function CustomerDetail({ customer }: CustomerDetailProps) {
+export function CustomerDetail({
+  customer,
+  intelligence,
+  invoiceHistory,
+  frequentServices,
+  currency,
+}: CustomerDetailProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [deleting, setDeleting] = useState(false);
@@ -126,6 +139,10 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
         </div>
       )}
 
+      {intelligence && (
+        <CustomerIntelligenceCards intelligence={intelligence} />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Contact Information</CardTitle>
@@ -191,19 +208,9 @@ export function CustomerDetail({ customer }: CustomerDetailProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Invoice History</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground/50" />
-            <p className="mt-4 text-sm text-muted-foreground">
-              No invoices for this customer yet.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <CustomerFrequentServices services={frequentServices} />
+
+      <CustomerInvoiceHistory invoices={invoiceHistory} currency={currency} />
     </div>
   );
 }
@@ -220,6 +227,11 @@ export function CustomerDetailSkeleton() {
           <Skeleton className="h-10 w-20" />
           <Skeleton className="h-10 w-20" />
         </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />
+        ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {[...Array(4)].map((_, i) => (

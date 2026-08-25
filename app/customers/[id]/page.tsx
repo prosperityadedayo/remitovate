@@ -3,6 +3,12 @@ import { Suspense } from "react";
 import { CustomerDetail } from "@/components/customers/customer-detail";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCustomerById } from "@/app/actions/customers";
+import {
+  getCustomerIntelligence,
+  getCustomerInvoiceHistory,
+  getCustomerFrequentServices,
+} from "@/app/actions/customer-intelligence";
+import { createClient } from "@/lib/supabase/server";
 
 function CustomerDetailSkeleton() {
   return (
@@ -16,6 +22,11 @@ function CustomerDetailSkeleton() {
           <Skeleton className="h-10 w-20" />
           <Skeleton className="h-10 w-20" />
         </div>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />
+        ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {[...Array(4)].map((_, i) => (
@@ -42,7 +53,30 @@ async function CustomerDetailContent({
     notFound();
   }
 
-  return <CustomerDetail customer={customer} />;
+  const supabase = await createClient();
+  const { data: business } = await supabase
+    .from("businesses")
+    .select("currency")
+    .eq("id", customer.business_id)
+    .maybeSingle();
+
+  const currency = business?.currency || "NGN";
+
+  const [intelligence, invoiceHistory, frequentServices] = await Promise.all([
+    getCustomerIntelligence(id),
+    getCustomerInvoiceHistory(id),
+    getCustomerFrequentServices(id, 5),
+  ]);
+
+  return (
+    <CustomerDetail
+      customer={customer}
+      intelligence={intelligence}
+      invoiceHistory={invoiceHistory}
+      frequentServices={frequentServices}
+      currency={currency}
+    />
+  );
 }
 
 export default async function CustomerDetailPage({

@@ -15,6 +15,8 @@ import { Customer, Business, InvoiceWithItems, InvoiceLineItemInput } from "@/ty
 import { createInvoice, updateInvoice } from "@/app/actions/invoices";
 import { Users, Plus, Trash2, ArrowLeft } from "lucide-react";
 import { formatCurrency } from "@/lib/invoice-utils";
+import { InvoiceSuggestions } from "./invoice-suggestions";
+import { AiQuickAdd } from "./ai-quick-add";
 
 interface InvoiceBuilderProps {
   customers: Customer[];
@@ -157,6 +159,43 @@ export function InvoiceBuilder({
         tax_rate: 0,
       },
     ]);
+  };
+
+  const handleAddSuggestedItems = (suggestion: { description: string; latestUnitPrice: number }) => {
+    setItems((prev) => {
+      const filtered = prev.filter((item) => item.description.trim() !== "");
+      return [
+        ...filtered,
+        {
+          id: `${uniqueId}-${Date.now()}`,
+          description: suggestion.description,
+          quantity: 1,
+          unit_price: suggestion.latestUnitPrice,
+          discount_amount: 0,
+          discount_type: "fixed" as const,
+          tax_rate: 0,
+        },
+      ];
+    });
+  };
+
+  const handleAddAiItems = (newItems: InvoiceLineItemInput[]) => {
+    setItems((prev) => {
+      const filtered = prev.filter((item) => item.description.trim() !== "");
+      const baseId = `${uniqueId}-${Date.now()}`;
+      return [
+        ...filtered,
+        ...newItems.map((item, index) => ({
+          id: `${baseId}-${index}`,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          discount_amount: item.discount_amount,
+          discount_type: item.discount_type,
+          tax_rate: item.tax_rate,
+        })),
+      ];
+    });
   };
 
   const removeItem = (id: string) => {
@@ -303,28 +342,28 @@ export function InvoiceBuilder({
           </Card>
         ) : (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer</CardTitle>
-                <CardDescription>
-                  Select an existing customer for this invoice.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="customer">Customer *</Label>
-                  <Select
-                    value={customerId}
-                    onValueChange={setCustomerId}
-                    placeholder="Select a customer"
-                    aria-label="Select a customer"
-                    options={customers.map((c) => ({ value: c.id, label: c.name }))}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
             <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Customer</CardTitle>
+                  <CardDescription>
+                    Select an existing customer for this invoice.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label htmlFor="customer">Customer *</Label>
+                    <Select
+                      value={customerId}
+                      onValueChange={setCustomerId}
+                      placeholder="Select a customer"
+                      aria-label="Select a customer"
+                      options={customers.map((c) => ({ value: c.id, label: c.name }))}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Invoice Details</CardTitle>
@@ -352,14 +391,16 @@ export function InvoiceBuilder({
                   </div>
                 </CardContent>
               </Card>
+            </div>
 
+            <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Additional Information</CardTitle>
+                  <CardTitle>Notes</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>
                   <div className="space-y-2">
-                    <Label htmlFor="notes">Notes</Label>
+                    <Label htmlFor="notes">Add notes</Label>
                     <textarea
                       id="notes"
                       value={notes}
@@ -368,8 +409,16 @@ export function InvoiceBuilder({
                       className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment Information</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-2">
-                    <Label htmlFor="paymentInformation">Payment Information</Label>
+                    <Label htmlFor="paymentInformation">Payment details</Label>
                     <textarea
                       id="paymentInformation"
                       value={paymentInformation}
@@ -380,6 +429,15 @@ export function InvoiceBuilder({
                   </div>
                 </CardContent>
               </Card>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <InvoiceSuggestions
+                customerId={customerId || undefined}
+                businessId={business.id}
+                onSelect={handleAddSuggestedItems}
+              />
+              <AiQuickAdd onAddItems={handleAddAiItems} />
             </div>
 
             <Card>

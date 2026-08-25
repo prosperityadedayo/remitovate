@@ -12,6 +12,7 @@ import {
   Copy,
   Link as LinkIcon,
   Loader2,
+  Bell,
 } from "lucide-react";
 import {
   formatCurrency,
@@ -28,7 +29,9 @@ import {
 import { InvoiceStatusActions } from "./invoice-status-actions";
 import { InvoiceDeleteButton } from "./invoice-delete-button";
 import { InvoiceDocument } from "./invoice-document";
+import { InvoiceReminderDialog } from "./invoice-reminder-dialog";
 import { useToast } from "@/components/ui/toast";
+import { generateReminderText, recordReminderSent } from "@/app/actions/reminders";
 
 interface InvoicePreviewProps {
   invoice: InvoiceWithItems;
@@ -39,10 +42,15 @@ export function InvoicePreview({ invoice, logoUrl }: InvoicePreviewProps) {
   const { toast } = useToast();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderTexts, setReminderTexts] = useState<{ email: string; whatsapp: string } | null>(null);
+  const [loadingReminder, setLoadingReminder] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
 
   const currency = invoice.businesses.currency || "NGN";
   const effectiveStatus = getEffectiveStatus(invoice.status, invoice.due_date);
   const isEditable = effectiveStatus !== "paid" && effectiveStatus !== "cancelled";
+  const canRemind = effectiveStatus === "sent" || effectiveStatus === "overdue";
 
   const handleDownloadPdf = useCallback(async () => {
     setIsDownloading(true);
@@ -153,6 +161,50 @@ export function InvoicePreview({ invoice, logoUrl }: InvoicePreviewProps) {
     }
   }, [invoice.id, toast]);
 
+  const handleOpenReminder = async () => {
+    setLoadingReminder(true);
+    setReminderOpen(true);
+    setReminderError(null);
+    setReminderTexts(null);
+
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Reminder text generation timed out")), 15000);
+      });
+
+      const texts = await Promise.race([
+        generateReminderText(invoice.id),
+        timeoutPromise,
+      ]);
+
+      if (!texts) {
+        setReminderError("Could not generate reminder text. The invoice may be missing required information.");
+      } else {
+        setReminderTexts(texts);
+      }
+    } catch {
+      setReminderError("Failed to load reminder. Please try again.");
+    } finally {
+      setLoadingReminder(false);
+    }
+  };
+
+  const handleReminderCopy = async (type: "email" | "whatsapp") => {
+    if (!navigator.clipboard) {
+      throw new Error("Clipboard unavailable");
+    }
+
+    const text = type === "email" ? reminderTexts?.email : reminderTexts?.whatsapp;
+    if (!text) {
+      throw new Error("No reminder text available");
+    }
+
+    await navigator.clipboard.writeText(text);
+    await recordReminderSent(invoice.id);
+  };
+
+  const customerPhone = invoice.customers.phone || undefined;
+
   return (
     <div className="space-y-6">
       <div className="no-print flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -209,6 +261,21 @@ export function InvoicePreview({ invoice, logoUrl }: InvoicePreviewProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          {canRemind && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenReminder}
+              disabled={loadingReminder}
+            >
+              {loadingReminder ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Bell className="mr-2 h-4 w-4" />
+              )}
+              {loadingReminder ? "Loading..." : "Remind"}
+            </Button>
+          )}
           {isEditable && (
             <Button asChild variant="outline" size="sm">
               <Link href={`/invoices/${invoice.id}/edit`}>
@@ -228,6 +295,18 @@ export function InvoicePreview({ invoice, logoUrl }: InvoicePreviewProps) {
           />
         </div>
       </div>
+
+      <InvoiceReminderDialog
+        open={reminderOpen}
+        onOpenChange={setReminderOpen}
+        invoiceId={invoice.invoice_number}
+        customerName={invoice.customers.name}
+        customerEmail={invoice.customers.email}
+        customerPhone={customerPhone}
+        texts={reminderTexts}
+        error={reminderError}
+        onCopy={handleReminderCopy}
+      />
 
       <InvoiceDocument invoice={invoice} logoUrl={logoUrl} />
     </div>
